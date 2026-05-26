@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  --background: #f4f9ff;
   --foreground: #171717;
 }
 
@@ -12,15 +12,44 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+.operator-stage {
+  background:
+    linear-gradient(135deg, rgba(29, 78, 216, 0.14), transparent 34%),
+    linear-gradient(225deg, rgba(14, 165, 233, 0.18), transparent 36%),
+    linear-gradient(315deg, rgba(6, 182, 212, 0.1), transparent 38%),
+    linear-gradient(#ffffff 1px, transparent 1px),
+    linear-gradient(90deg, #ffffff 1px, transparent 1px),
+    #f4f9ff;
+  background-size:
+    auto,
+    auto,
+    auto,
+    32px 32px,
+    32px 32px,
+    auto;
+  position: relative;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: rgba(37, 99, 235, 0.2);
+  color: #1e3a8a;
+}
+
+@media print {
+  body {
+    background: white;
+  }
 }

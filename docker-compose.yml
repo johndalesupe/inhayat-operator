@@ -1,0 +1,49 @@
+services:
+  inhayot-operator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.inhayat.com/api/v1}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://operator.inhayat.com}
+    container_name: inhayot-operator
+    restart: unless-stopped
+    expose:
+      - "3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.inhayat.com/api/v1}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://operator.inhayat.com}
+      INTERNAL_API_URL: ${INTERNAL_API_URL:-https://api.inhayat.com/api/v1}
+    networks:
+      - cu24-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=cu24-network
+      # ── HTTP → HTTPS redirect ──
+      - traefik.http.routers.inhayot-operator-http.rule=Host(`operator.inhayat.com`)
+      - traefik.http.routers.inhayot-operator-http.entrypoints=web
+      - traefik.http.routers.inhayot-operator-http.middlewares=inhayot-operator-https-redirect
+      - traefik.http.middlewares.inhayot-operator-https-redirect.redirectscheme.scheme=https
+      - traefik.http.middlewares.inhayot-operator-https-redirect.redirectscheme.permanent=true
+      # ── HTTPS router ──
+      - traefik.http.routers.inhayot-operator.rule=Host(`operator.inhayat.com`)
+      - traefik.http.routers.inhayot-operator.entrypoints=websecure
+      - traefik.http.routers.inhayot-operator.tls=true
+      - traefik.http.routers.inhayot-operator.tls.certresolver=letsencrypt
+      - traefik.http.routers.inhayot-operator.tls.domains[0].main=operator.inhayat.com
+      - traefik.http.routers.inhayot-operator.service=inhayot-operator
+      - traefik.http.services.inhayot-operator.loadbalancer.server.port=3000
+
+networks:
+  cu24-network:
+    external: true
+    name: cu24-network

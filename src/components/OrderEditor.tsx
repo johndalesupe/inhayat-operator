@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   CheckCircle2,
@@ -48,10 +48,28 @@ const orderFormSchema = yup.object({
 
 export type OrderFormValues = yup.InferType<typeof orderFormSchema>;
 
+function idString(value: unknown) {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  if (typeof value === "object") {
+    const objectValue = value as {
+      _id?: unknown;
+      $oid?: unknown;
+      toString?: () => string;
+    };
+    if (objectValue._id) return idString(objectValue._id);
+    if (objectValue.$oid) return idString(objectValue.$oid);
+    const stringValue = objectValue.toString?.();
+    if (stringValue && stringValue !== "[object Object]") return stringValue;
+  }
+  return "";
+}
+
 function defaultValues(order: OperatorOrder): OrderFormValues {
   return {
-    regionId: order.delivery?.regionId ?? "",
-    cityId: order.delivery?.cityId ?? "",
+    regionId: idString(order.delivery?.regionId),
+    cityId: idString(order.delivery?.cityId),
     address: order.delivery?.address ?? order.deliveryAddress ?? "",
     notes: order.notes ?? "",
     items: order.items.map((item) => ({
@@ -103,6 +121,11 @@ export function OrderEditor({
     resolver: yupResolver(orderFormSchema),
     defaultValues: order ? defaultValues(order) : undefined,
   });
+
+  useEffect(() => {
+    if (!order) return;
+    form.reset(defaultValues(order));
+  }, [form, order?._id]);
   const selectedRegionId = useWatch({
     control: form.control,
     name: "regionId",

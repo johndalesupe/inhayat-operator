@@ -19,6 +19,7 @@ import { useProcessOrders, useStreamOrders } from "../hooks/useOperatorOrders";
 import { useOperatorRealtime } from "../hooks/useOperatorRealtime";
 import { clearSession, hydrateAuth, setOperator } from "../store/authSlice";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
+import { useTelegram } from "../telegram/TelegramProvider";
 
 const navItems = [
   { href: "/stream", label: "Oqim", icon: Radio },
@@ -49,8 +50,9 @@ export function OperatorShell({ children }: { children: ReactNode }) {
   const streamCount = streamQuery.data?.items.length ?? 0;
   const processCount = processQuery.data?.items.length ?? 0;
   const streamOpen = streamQuery.data?.settings.stream.isOpen ?? false;
+  const telegram = useTelegram();
 
-  useOperatorRealtime(token);
+  const realtimeNotice = useOperatorRealtime(token);
 
   useEffect(() => {
     dispatch(hydrateAuth(getToken()));
@@ -62,8 +64,22 @@ export function OperatorShell({ children }: { children: ReactNode }) {
   }, [hydrated, router, token]);
 
   useEffect(() => {
+    if (!telegram.ready || telegram.isTelegram) return;
+    clearToken();
+    dispatch(clearSession());
+    router.replace("/login");
+  }, [dispatch, router, telegram.isTelegram, telegram.ready]);
+
+  useEffect(() => {
     if (profileQuery.data) dispatch(setOperator(profileQuery.data));
   }, [dispatch, profileQuery.data]);
+
+  useEffect(() => {
+    if (!telegram.webApp || telegram.webApp.isFullscreen) return;
+    const request = () => telegram.webApp?.requestFullscreen?.();
+    window.addEventListener("pointerdown", request, { once: true });
+    return () => window.removeEventListener("pointerdown", request);
+  }, [telegram.webApp]);
 
   useEffect(() => {
     if (!profileQuery.isError) return;
@@ -87,7 +103,19 @@ export function OperatorShell({ children }: { children: ReactNode }) {
   };
 
   return (
-    <main className="operator-stage min-h-screen text-neutral-950">
+    <main className="operator-stage min-h-dvh text-neutral-950">
+      {realtimeNotice ? (
+        <div
+          role="status"
+          className={`fixed left-[calc(.75rem+var(--tg-safe-left))] right-[calc(.75rem+var(--tg-safe-right))] top-[calc(.5rem+var(--tg-safe-top))] z-[70] mx-auto max-w-md rounded-2xl border px-4 py-3 text-sm font-semibold backdrop-blur-xl ${
+            realtimeNotice.tone === "warning"
+              ? "border-amber-200 bg-amber-50/95 text-amber-950"
+              : "border-emerald-200 bg-emerald-50/95 text-emerald-950"
+          }`}
+        >
+          {realtimeNotice.message}
+        </div>
+      ) : null}
       <aside className="fixed inset-y-0 left-0 hidden w-[304px] overflow-hidden border-r border-blue-100/80 bg-white/75 backdrop-blur-2xl lg:block">
         <div className="flex h-dvh min-h-0 flex-col p-4">
           <div className="flex items-center gap-3 rounded-2xl border border-blue-100 bg-white/80 p-3">
@@ -214,12 +242,12 @@ export function OperatorShell({ children }: { children: ReactNode }) {
       </aside>
 
       <section className="min-w-0 flex-1 lg:ml-[304px]">
-        <div className="mx-auto max-w-6xl px-4 py-4 pb-28 sm:px-6 lg:py-6 lg:pb-6">
+        <div className="mx-auto max-w-6xl px-3 py-3 pb-[calc(6.5rem+var(--tg-safe-bottom))] sm:px-6 lg:py-6 lg:pb-6">
           {children}
         </div>
       </section>
 
-      <nav className="fixed inset-x-3 bottom-3 z-50 grid grid-cols-4 gap-1 rounded-[1.35rem] border border-blue-100/80 bg-white/85 p-1.5 backdrop-blur-2xl lg:hidden">
+      <nav className="fixed inset-x-[calc(.5rem+var(--tg-safe-left))] bottom-[calc(.5rem+var(--tg-safe-bottom))] z-50 grid grid-cols-4 gap-1 rounded-[1.25rem] border border-blue-100/80 bg-white/94 p-1.5 backdrop-blur-2xl lg:hidden">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = pathname === item.href;

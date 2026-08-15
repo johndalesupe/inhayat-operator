@@ -71,27 +71,32 @@ async function request<T>(
 }
 
 export const operatorApi = {
-  requestOtp: (phoneNumber: string) =>
+  requestOtp: (phoneNumber: string, initData: string) =>
     request<{ phoneNumber: string; expiresInSeconds: number; devOtp?: string }>(
       "/operator/auth/request-otp",
       {
         method: "POST",
         auth: false,
-        body: JSON.stringify({ phoneNumber }),
+        body: JSON.stringify({ phoneNumber, initData }),
       },
     ),
 
-  verifyOtp: (phoneNumber: string, code: string) =>
+  verifyOtp: (phoneNumber: string, code: string, initData: string) =>
     request<{ accessToken: string; operator: OperatorProfile }>(
       "/operator/auth/verify-otp",
       {
         method: "POST",
         auth: false,
-        body: JSON.stringify({ phoneNumber, code }),
+        body: JSON.stringify({ phoneNumber, code, initData }),
       },
     ),
 
   profile: () => request<OperatorProfile>("/operator/auth/profile"),
+
+  registerTelegramWriteAccess: () =>
+    request<{ allowed: true }>("/operator/auth/telegram-write-access", {
+      method: "POST",
+    }),
 
   updateProfile: (body: { fullName: string }) =>
     request<OperatorProfile>("/operator/profile", {

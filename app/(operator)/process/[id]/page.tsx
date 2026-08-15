@@ -11,6 +11,7 @@ import {
   PhoneCall,
 } from "lucide-react";
 import { EmptyState, GlassPanel } from "@/src/components/ui";
+import { MarketerCommissionAudit } from "@/src/components/MarketerCommissionAudit";
 import { OrderCard } from "@/src/components/OrderCard";
 import { OrderEditor, type OrderFormValues } from "@/src/components/OrderEditor";
 import {
@@ -232,6 +233,11 @@ export default function OrderDetailsPage() {
               </DetailPanel>
             </div>
           )}
+
+          {order.marketerCommissionLogs &&
+            order.marketerCommissionLogs.length > 0 && (
+              <MarketerCommissionAudit logs={order.marketerCommissionLogs} />
+            )}
         </div>
 
         {canEdit ? (

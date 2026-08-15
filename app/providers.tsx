@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { Provider } from "react-redux";
 import { store } from "@/src/store/store";
+import { TelegramProvider } from "@/src/telegram/TelegramProvider";
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -12,7 +13,8 @@ export function Providers({ children }: { children: ReactNode }) {
         defaultOptions: {
           queries: {
             staleTime: 20_000,
-            refetchOnWindowFocus: false,
+            refetchOnWindowFocus: "always",
+            refetchOnReconnect: "always",
             retry: 1,
           },
         },
@@ -21,7 +23,9 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <Provider store={store}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <TelegramProvider>{children}</TelegramProvider>
+      </QueryClientProvider>
     </Provider>
   );
 }

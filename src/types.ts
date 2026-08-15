@@ -26,6 +26,10 @@ export type OperatorProfile = {
   isActive: boolean;
   isOnline?: boolean;
   lastSeenAt?: string | null;
+  telegramId?: number | null;
+  telegramUsername?: string | null;
+  telegramWriteAccess?: boolean;
+  telegramLinkedAt?: string | null;
 };
 
 export type OrderItem = {
@@ -89,6 +93,26 @@ export type OrderPayment = {
   deliveryPaid: boolean;
 };
 
+export type MarketerCommissionLog = {
+  _id: string;
+  type: "commission" | "reversal" | "adjustment" | "withdrawal";
+  direction: "credit" | "debit";
+  amount: number;
+  eligibleSubtotal: number;
+  commissionRateBps: number;
+  balanceAfter: number;
+  orderId: string | null;
+  referralId: string | null;
+  note: string | null;
+  reasonUz: string | null;
+  reasonCode: "awarded" | "restored" | "reversed" | null;
+  fromStatus: string | null;
+  toStatus: string | null;
+  transitionSource: string | null;
+  settlementCycle: number;
+  createdAt: string;
+};
+
 export type OperatorOrder = {
   _id: string;
   orderNumber: string;
@@ -104,6 +128,17 @@ export type OperatorOrder = {
   totalAmount: number;
   itemsAmount: number;
   payment: OrderPayment | null;
+  paymentMethod: "pod" | "payme" | "click";
+  paymentStatus:
+    | "unpaid"
+    | "pending"
+    | "processing"
+    | "paid"
+    | "partially_paid"
+    | "failed"
+    | "cancelled"
+    | "refunded";
+  paidAt: string | null;
   delivery: OrderDelivery | null;
   deliveryAddress: string | null;
   status:
@@ -122,6 +157,7 @@ export type OperatorOrder = {
   operatorAcceptedAt: string | null;
   operatorConfirmedAt: string | null;
   operatorFeeCreditedAt: string | null;
+  marketerCommissionLogs?: MarketerCommissionLog[];
   createdAt: string;
   updatedAt: string;
 };
@@ -137,6 +173,8 @@ export type OperatorWallet = {
   pendingWithdrawalAmount: number;
   totalEarned: number;
   totalWithdrawn: number;
+  totalPrepaid: number;
+  lastPrepaymentAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -168,7 +206,8 @@ export type OperatorWalletTransactionType =
   | "order_fee_reapply"
   | "order_fee_reversal"
   | "withdrawal_request"
-  | "withdrawal_reject";
+  | "withdrawal_reject"
+  | "admin_prepayment";
 
 export type OperatorWalletTransactionDirection = "credit" | "debit";
 
@@ -186,6 +225,7 @@ export type OperatorWalletTransaction = {
   orderNumber: string | null;
   withdrawalId: string | null;
   description: string | null;
+  note?: string | null;
   createdAt: string;
   updatedAt: string;
 };

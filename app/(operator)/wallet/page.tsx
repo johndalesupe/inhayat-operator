@@ -7,6 +7,7 @@ import {
   Clock3,
   CreditCard,
   Loader2,
+  HandCoins,
   Wallet,
   XCircle,
 } from "lucide-react";
@@ -141,6 +142,7 @@ const transactionLabel: Record<OperatorWalletTransaction["type"], string> = {
   order_fee_reversal: "Operator haqi qaytarildi",
   withdrawal_request: "Pul yechish so'rovi",
   withdrawal_reject: "Rad etilgan so'rov qaytarildi",
+  admin_prepayment: "Oldindan to'lov",
 };
 
 function TransactionRow({ item }: { item: OperatorWalletTransaction }) {
@@ -158,7 +160,7 @@ function TransactionRow({ item }: { item: OperatorWalletTransaction }) {
             </p>
           )}
           <p className="mt-1 text-xs font-medium text-neutral-500">
-            {item.description ?? "-"}
+            {item.note || item.description || "-"}
           </p>
           <p className="mt-1 text-xs font-medium text-neutral-400">
             {dateText(item.createdAt)}
@@ -246,7 +248,7 @@ export default function WalletPage() {
         </p>
       </GlassPanel>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard
           label="Mavjud balans"
           value={formatPrice(wallet?.balance ?? 0)}
@@ -267,9 +269,14 @@ export default function WalletPage() {
           icon={<CheckCircle2 className="h-5 w-5" />}
         />
         <StatCard
-          label="Yechib olindi"
+          label="Jami chiqarildi"
           value={formatPrice(wallet?.totalWithdrawn ?? 0)}
           icon={<ArrowDownToLine className="h-5 w-5" />}
+        />
+        <StatCard
+          label="Oldindan to'lov"
+          value={formatPrice(wallet?.totalPrepaid ?? 0)}
+          icon={<HandCoins className="h-5 w-5" />}
         />
       </section>
 

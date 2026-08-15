@@ -43,6 +43,25 @@ export function OrderCard({
   const paidAmount = order.payment?.totalPaidAmount ?? 0;
   const remainingAmount =
     order.payment?.remainingAmount ?? Math.max(grossAmount - paidAmount, 0);
+  const paymentMethod = order.paymentMethod ?? "pod";
+  const paymentStatus = order.paymentStatus ?? "unpaid";
+  const paymentMethodLabel =
+    paymentMethod === "payme"
+      ? "Payme"
+      : paymentMethod === "click"
+        ? "Click"
+        : "Yetkazishda to'lov";
+  const paymentStatusLabel: Record<OperatorOrder["paymentStatus"], string> = {
+    unpaid: "To'lanmagan",
+    pending: "To'lov kutilmoqda",
+    processing: "Tekshirilmoqda",
+    paid: "To'langan",
+    partially_paid: "Qisman to'langan",
+    failed: "To'lov xatosi",
+    cancelled: "To'lov bekor qilingan",
+    refunded: "To'lov qaytarilgan",
+  };
+  const paymentSettled = paymentMethod === "pod" || paymentStatus === "paid";
 
   return (
     <GlassPanel
@@ -73,6 +92,19 @@ export function OrderCard({
                 Operator haqi: {formatPrice(operatorFee)}
               </span>
             )}
+            <span
+              className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                paymentSettled
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  : paymentStatus === "failed" ||
+                      paymentStatus === "cancelled" ||
+                      paymentStatus === "refunded"
+                    ? "border-rose-200 bg-rose-50 text-rose-700"
+                    : "border-amber-200 bg-amber-50 text-amber-800"
+              }`}
+            >
+              {paymentMethodLabel} · {paymentStatusLabel[paymentStatus]}
+            </span>
             {statusLabel && (
               <span
                 className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
@@ -121,7 +153,9 @@ export function OrderCard({
           {showDelivery && (
             <div className="flex min-w-0 items-center gap-2">
               <PackageCheck className="h-4 w-4 shrink-0 text-neutral-500" />
-              <span className="min-w-0 break-words">{deliveryPlace(order)}</span>
+              <span className="min-w-0 break-words">
+                {deliveryPlace(order)}
+              </span>
             </div>
           )}
         </div>
@@ -164,7 +198,9 @@ export function OrderCard({
       {showPayment && (
         <div className="mt-3 rounded-xl border border-neutral-200 bg-neutral-50/80 p-3">
           <div className="mb-2 flex items-center justify-between gap-3">
-            <p className="text-sm font-semibold text-neutral-950">To&apos;lov</p>
+            <p className="text-sm font-semibold text-neutral-950">
+              To&apos;lov
+            </p>
             <p className="text-sm font-semibold text-neutral-950">
               {formatPrice(remainingAmount)}
             </p>
@@ -189,7 +225,9 @@ export function OrderCard({
               </span>
             </div>
             <div className="flex items-center justify-between gap-3">
-              <span className="font-medium text-neutral-500">To&apos;langan</span>
+              <span className="font-medium text-neutral-500">
+                To&apos;langan
+              </span>
               <span className="font-semibold text-emerald-700">
                 {formatPrice(paidAmount)}
               </span>

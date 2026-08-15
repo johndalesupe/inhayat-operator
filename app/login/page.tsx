@@ -1,7 +1,7 @@
 "use client";
 
 import { yupResolver } from "@hookform/resolvers/yup";
-import { Loader2 } from "lucide-react";
+import { Headphones, Loader2, ShieldCheck, Smartphone } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -15,6 +15,7 @@ import {
   PrimaryButton,
   inputClass,
 } from "@/src/components/ui";
+import { useTelegram } from "@/src/telegram/TelegramProvider";
 
 const phoneSchema = yup.object({
   phoneNumber: yup
@@ -42,6 +43,7 @@ export default function LoginPage() {
   const [otpSent, setOtpSent] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("+998");
   const [devOtp, setDevOtp] = useState<string | null>(null);
+  const telegram = useTelegram();
 
   const phoneForm = useForm<PhoneForm>({
     resolver: yupResolver(phoneSchema),
@@ -58,10 +60,46 @@ export default function LoginPage() {
 
   const error = requestOtp.error ?? verifyOtp.error;
 
+  if (!telegram.ready) {
+    return (
+      <main className="operator-stage flex min-h-dvh items-center justify-center">
+        <Loader2 className="h-7 w-7 animate-spin text-blue-700" />
+      </main>
+    );
+  }
+
+  if (!telegram.isTelegram) {
+    return (
+      <main className="operator-stage flex min-h-dvh items-center justify-center px-4 py-8">
+        <GlassPanel className="w-full max-w-[390px] p-5 text-center">
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-700 text-white">
+            <Headphones className="h-5 w-5" />
+          </span>
+          <h1 className="mt-4 text-lg font-bold">Telegram orqali oching</h1>
+          <p className="mt-2 text-sm leading-6 text-neutral-600">
+            Operator paneli faqat rasmiy Telegram bot ichidagi Mini App orqali
+            ishlaydi.
+          </p>
+        </GlassPanel>
+      </main>
+    );
+  }
+
   return (
-    <main className="operator-stage flex min-h-screen items-center justify-center px-4 py-8 text-neutral-950">
-      <GlassPanel className="w-full max-w-[430px] p-6">
-        <h1 className="mb-6 text-center text-xl font-semibold">Kirish</h1>
+    <main className="operator-stage flex min-h-dvh items-center justify-center px-3 py-5 text-neutral-950">
+      <GlassPanel className="w-full max-w-[410px] p-4 sm:p-5">
+        <div className="mb-5 flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50/80 p-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-700 text-white">
+            <ShieldCheck className="h-4.5 w-4.5" />
+          </span>
+          <div>
+            <h1 className="text-base font-bold">Xavfsiz operator kirishi</h1>
+            <p className="mt-1 text-xs leading-5 text-neutral-600">
+              Telegram hisobingiz aniqlandi. Endi operator telefon raqamingizni
+              SMS kod bilan tasdiqlang.
+            </p>
+          </div>
+        </div>
           {!otpSent ? (
             <form
               className="space-y-4"
@@ -79,7 +117,9 @@ export default function LoginPage() {
                 <input
                   {...phoneForm.register("phoneNumber")}
                   placeholder="+998901234567"
-                  className={inputClass}
+                  inputMode="tel"
+                  autoComplete="tel"
+                  className={`${inputClass} text-base`}
                 />
                 <FieldError
                   message={phoneForm.formState.errors.phoneNumber?.message}
@@ -94,6 +134,7 @@ export default function LoginPage() {
                 {requestOtp.isPending && (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 )}
+                <Smartphone className="h-4 w-4" />
                 SMS kod olish
               </PrimaryButton>
             </form>
@@ -111,7 +152,9 @@ export default function LoginPage() {
                 <input
                   {...otpForm.register("code")}
                   placeholder="123456"
-                  className={`${inputClass} tracking-[0.28em]`}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  className={`${inputClass} text-center text-base tracking-[0.28em]`}
                 />
                 <FieldError message={otpForm.formState.errors.code?.message} />
               </label>

@@ -13,7 +13,10 @@ import {
 import { useForm, useWatch } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
-import { useOperatorCities, useOperatorRegions } from "../hooks/useOperatorOrders";
+import {
+  useOperatorCities,
+  useOperatorRegions,
+} from "../hooks/useOperatorOrders";
 import { formatPrice } from "../lib/format";
 import type { DeliveryCity, OperatorOrder } from "../types";
 import {
@@ -125,6 +128,9 @@ export function OrderEditor({
   useEffect(() => {
     if (!order) return;
     form.reset(defaultValues(order));
+    // Reset only when the selected order changes. Realtime cache refreshes
+    // must not erase an operator's in-progress form edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form, order?._id]);
   const selectedRegionId = useWatch({
     control: form.control,
@@ -136,10 +142,7 @@ export function OrderEditor({
   });
   const regionsQuery = useOperatorRegions();
   const citiesQuery = useOperatorCities(selectedRegionId);
-  const cities = useMemo(
-    () => citiesQuery.data ?? [],
-    [citiesQuery.data],
-  );
+  const cities = useMemo(() => citiesQuery.data ?? [], [citiesQuery.data]);
   const selectedCity = useMemo(
     () => cities.find((city) => city._id === selectedCityId) ?? null,
     [cities, selectedCityId],
@@ -205,9 +208,7 @@ export function OrderEditor({
   return (
     <GlassPanel className="p-5">
       <div className="mb-5">
-        <p className="text-sm font-bold text-neutral-500">
-          Buyurtma tahriri
-        </p>
+        <p className="text-sm font-bold text-neutral-500">Buyurtma tahriri</p>
         <h2 className="text-lg font-semibold text-neutral-950">
           Yetkazish va tasdiqlash
         </h2>
@@ -333,7 +334,9 @@ export function OrderEditor({
                     type="hidden"
                     {...form.register(`items.${index}.numericId`)}
                   />
-                  <FieldError message={itemErrors?.[index]?.quantity?.message} />
+                  <FieldError
+                    message={itemErrors?.[index]?.quantity?.message}
+                  />
                 </div>
               </div>
             ))}
@@ -382,7 +385,7 @@ export function OrderEditor({
                 ? "grid gap-2 sm:grid-cols-3"
                 : canConfirm
                   ? "grid grid-cols-2 gap-2"
-                : "grid gap-2"
+                  : "grid gap-2"
             }
           >
             <ActionButton
@@ -441,94 +444,94 @@ export function OrderEditor({
         <FullscreenOverlay>
           <div className="fixed inset-0 z-50 flex items-end bg-neutral-950/45 p-0 sm:items-center sm:justify-center sm:p-4">
             <div className="w-full rounded-t-3xl border border-white/80 bg-white p-5 sm:max-w-md sm:rounded-2xl">
-            <div className="mb-4 flex items-start gap-3">
-              <span
-                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
-                  pendingAction === "cancel"
-                    ? "bg-red-50 text-red-700"
-                    : pendingAction === "callback"
-                      ? "bg-amber-50 text-amber-700"
-                    : "bg-emerald-50 text-emerald-700"
-                }`}
-              >
-                {pendingAction === "cancel" ? (
-                  <XCircle className="h-5 w-5" />
-                ) : pendingAction === "callback" ? (
-                  <Phone className="h-5 w-5" />
-                ) : (
-                  <CheckCircle2 className="h-5 w-5" />
-                )}
-              </span>
-              <div>
-                <h3 className="text-base font-semibold text-neutral-950">
+              <div className="mb-4 flex items-start gap-3">
+                <span
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+                    pendingAction === "cancel"
+                      ? "bg-red-50 text-red-700"
+                      : pendingAction === "callback"
+                        ? "bg-amber-50 text-amber-700"
+                        : "bg-emerald-50 text-emerald-700"
+                  }`}
+                >
+                  {pendingAction === "cancel" ? (
+                    <XCircle className="h-5 w-5" />
+                  ) : pendingAction === "callback" ? (
+                    <Phone className="h-5 w-5" />
+                  ) : (
+                    <CheckCircle2 className="h-5 w-5" />
+                  )}
+                </span>
+                <div>
+                  <h3 className="text-base font-semibold text-neutral-950">
+                    {pendingAction === "cancel"
+                      ? "Buyurtmani bekor qilasizmi?"
+                      : pendingAction === "callback"
+                        ? "Keyinroq qo'ng'iroq qilinsinmi?"
+                        : "Buyurtmani tasdiqlaysizmi?"}
+                  </h3>
+                  <p className="mt-1 text-sm font-medium leading-6 text-neutral-500">
+                    {pendingAction === "cancel"
+                      ? "Bekor qilingandan keyin buyurtma jarayondan chiqadi."
+                      : pendingAction === "callback"
+                        ? "Mijoz telefonga javob bermagan bo'lsa, buyurtma qayta qo'ng'iroq qilish holatiga o'tadi."
+                        : "Tasdiqlangandan keyin buyurtma keyingi jarayonga o'tadi."}
+                  </p>
+                </div>
+              </div>
+
+              {pendingAction === "cancel" && (
+                <label className="mb-4 block">
+                  <span className="mb-1 block text-sm font-semibold text-neutral-700">
+                    Bekor qilish sababi
+                  </span>
+                  <textarea
+                    value={cancelReason}
+                    onChange={(event) => setCancelReason(event.target.value)}
+                    rows={3}
+                    className={textareaClass}
+                    placeholder="Masalan: mijoz fikridan qaytdi"
+                  />
+                </label>
+              )}
+
+              <div className="grid grid-cols-2 gap-2">
+                <ActionButton
+                  type="button"
+                  onClick={() => setPendingAction(null)}
+                  disabled={confirming || cancelling || callbacking}
+                >
+                  Ortga
+                </ActionButton>
+                <button
+                  type="button"
+                  onClick={submitPendingAction}
+                  disabled={confirming || cancelling || callbacking}
+                  className={`inline-flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50 ${
+                    pendingAction === "cancel"
+                      ? "bg-red-600"
+                      : pendingAction === "callback"
+                        ? "bg-amber-600"
+                        : "bg-gradient-to-r from-emerald-600 via-green-600 to-teal-500"
+                  }`}
+                >
+                  {confirming || cancelling || callbacking ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : pendingAction === "cancel" ? (
+                    <XCircle className="h-4 w-4" />
+                  ) : pendingAction === "callback" ? (
+                    <Phone className="h-4 w-4" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4" />
+                  )}
                   {pendingAction === "cancel"
-                    ? "Buyurtmani bekor qilasizmi?"
+                    ? "Bekor qilish"
                     : pendingAction === "callback"
-                      ? "Keyinroq qo'ng'iroq qilinsinmi?"
-                    : "Buyurtmani tasdiqlaysizmi?"}
-                </h3>
-                <p className="mt-1 text-sm font-medium leading-6 text-neutral-500">
-                  {pendingAction === "cancel"
-                    ? "Bekor qilingandan keyin buyurtma jarayondan chiqadi."
-                    : pendingAction === "callback"
-                      ? "Mijoz telefonga javob bermagan bo'lsa, buyurtma qayta qo'ng'iroq qilish holatiga o'tadi."
-                    : "Tasdiqlangandan keyin buyurtma keyingi jarayonga o'tadi."}
-                </p>
+                      ? "Keyinroq"
+                      : "Tasdiqlash"}
+                </button>
               </div>
             </div>
-
-            {pendingAction === "cancel" && (
-              <label className="mb-4 block">
-                <span className="mb-1 block text-sm font-semibold text-neutral-700">
-                  Bekor qilish sababi
-                </span>
-                <textarea
-                  value={cancelReason}
-                  onChange={(event) => setCancelReason(event.target.value)}
-                  rows={3}
-                  className={textareaClass}
-                  placeholder="Masalan: mijoz fikridan qaytdi"
-                />
-              </label>
-            )}
-
-            <div className="grid grid-cols-2 gap-2">
-              <ActionButton
-                type="button"
-                onClick={() => setPendingAction(null)}
-                disabled={confirming || cancelling || callbacking}
-              >
-                Ortga
-              </ActionButton>
-              <button
-                type="button"
-                onClick={submitPendingAction}
-                disabled={confirming || cancelling || callbacking}
-                className={`inline-flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50 ${
-                  pendingAction === "cancel"
-                    ? "bg-red-600"
-                    : pendingAction === "callback"
-                      ? "bg-amber-600"
-                    : "bg-gradient-to-r from-emerald-600 via-green-600 to-teal-500"
-                }`}
-              >
-                {confirming || cancelling || callbacking ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : pendingAction === "cancel" ? (
-                  <XCircle className="h-4 w-4" />
-                ) : pendingAction === "callback" ? (
-                  <Phone className="h-4 w-4" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4" />
-                )}
-                {pendingAction === "cancel"
-                  ? "Bekor qilish"
-                  : pendingAction === "callback"
-                    ? "Keyinroq"
-                    : "Tasdiqlash"}
-              </button>
-            </div>
-          </div>
           </div>
         </FullscreenOverlay>
       )}

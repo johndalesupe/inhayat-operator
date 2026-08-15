@@ -6,6 +6,7 @@ import { clearToken, operatorApi, setToken } from "../lib/api";
 import { operatorKeys } from "../lib/queryKeys";
 import { clearSession, setOperator, setSession } from "../store/authSlice";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
+import { useTelegram } from "../telegram/TelegramProvider";
 
 export function useOperatorProfile() {
   const token = useAppSelector((state) => state.auth.token);
@@ -43,15 +44,36 @@ export function useUploadOperatorAvatar() {
   });
 }
 
-export function useRequestOtp() {
+export function useEnableOperatorNotifications() {
+  const queryClient = useQueryClient();
+  const { requestNotifications, haptic } = useTelegram();
+
   return useMutation({
-    mutationFn: (phoneNumber: string) => operatorApi.requestOtp(phoneNumber),
+    mutationFn: async () => {
+      const allowed = await requestNotifications();
+      if (!allowed) throw new Error("Telegram xabarlariga ruxsat berilmadi");
+      return operatorApi.registerTelegramWriteAccess();
+    },
+    onSuccess: () => {
+      haptic("success");
+      void queryClient.invalidateQueries({ queryKey: operatorKeys.profile });
+    },
+    onError: () => haptic("warning"),
+  });
+}
+
+export function useRequestOtp() {
+  const { initData } = useTelegram();
+  return useMutation({
+    mutationFn: (phoneNumber: string) =>
+      operatorApi.requestOtp(phoneNumber, initData),
   });
 }
 
 export function useVerifyOtp() {
   const dispatch = useAppDispatch();
   const router = useRouter();
+  const { initData, haptic, requestNotifications } = useTelegram();
 
   return useMutation({
     mutationFn: ({
@@ -60,10 +82,17 @@ export function useVerifyOtp() {
     }: {
       phoneNumber: string;
       code: string;
-    }) => operatorApi.verifyOtp(phoneNumber, code),
-    onSuccess: (data) => {
+    }) => operatorApi.verifyOtp(phoneNumber, code, initData),
+    onSuccess: async (data) => {
       setToken(data.accessToken);
-      dispatch(setSession({ token: data.accessToken, operator: data.operator }));
+      dispatch(
+        setSession({ token: data.accessToken, operator: data.operator }),
+      );
+      haptic("success");
+      const allowed = await requestNotifications();
+      if (allowed) {
+        await operatorApi.registerTelegramWriteAccess().catch(() => undefined);
+      }
       router.replace("/stream");
     },
   });

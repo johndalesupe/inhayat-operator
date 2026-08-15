@@ -2,7 +2,17 @@
 
 import Image from "next/image";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { Camera, Loader2, LogOut, Phone, Save, UserRound } from "lucide-react";
+import {
+  Bell,
+  Camera,
+  CheckCircle2,
+  Loader2,
+  LogOut,
+  Phone,
+  Save,
+  Send,
+  UserRound,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import * as yup from "yup";
@@ -14,6 +24,7 @@ import {
 } from "@/src/components/ui";
 import {
   useOperatorLogout,
+  useEnableOperatorNotifications,
   useOperatorProfile,
   useUpdateOperatorProfile,
   useUploadOperatorAvatar,
@@ -21,7 +32,11 @@ import {
 import { errorText } from "@/src/lib/format";
 
 const profileSchema = yup.object({
-  fullName: yup.string().trim().min(2, "Kamida 2 ta belgi").required("Ism majburiy"),
+  fullName: yup
+    .string()
+    .trim()
+    .min(2, "Kamida 2 ta belgi")
+    .required("Ism majburiy"),
 });
 
 type ProfileForm = yup.InferType<typeof profileSchema>;
@@ -40,6 +55,7 @@ export default function ProfilePage() {
   const updateProfile = useUpdateOperatorProfile();
   const uploadAvatar = useUploadOperatorAvatar();
   const logout = useOperatorLogout();
+  const enableNotifications = useEnableOperatorNotifications();
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const profile = profileQuery.data;
 
@@ -76,7 +92,8 @@ export default function ProfilePage() {
       <GlassPanel className="bg-gradient-to-r from-white/85 via-blue-50/80 to-cyan-50/80 p-4 sm:p-5">
         <h1 className="text-lg font-semibold text-neutral-950">Profil</h1>
         <p className="mt-1 text-sm font-semibold text-neutral-500">
-          Ismingiz va avatar rasmingizni yangilang. Telefon raqam o&apos;zgarmaydi.
+          Ismingiz va avatar rasmingizni yangilang. Telefon raqam
+          o&apos;zgarmaydi.
         </p>
       </GlassPanel>
 
@@ -95,7 +112,9 @@ export default function ProfilePage() {
                 />
               ) : (
                 <span className="text-2xl font-semibold">
-                  {initials(profile?.fullName) || <UserRound className="h-9 w-9" />}
+                  {initials(profile?.fullName) || (
+                    <UserRound className="h-9 w-9" />
+                  )}
                 </span>
               )}
             </div>
@@ -123,7 +142,9 @@ export default function ProfilePage() {
               />
             </label>
             {avatarError && (
-              <p className="mt-3 text-sm font-bold text-red-600">{avatarError}</p>
+              <p className="mt-3 text-sm font-bold text-red-600">
+                {avatarError}
+              </p>
             )}
           </div>
         </GlassPanel>
@@ -185,6 +206,54 @@ export default function ProfilePage() {
           </form>
         </GlassPanel>
       </section>
+
+      <GlassPanel className="p-4 sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-700">
+              <Bell className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold text-neutral-950">
+                Telegram bildirishnomalari
+              </h2>
+              <p className="mt-1 text-xs font-medium leading-5 text-neutral-500">
+                Balans, operator bonusi va pul yechish holatlari bot orqali ham
+                yuboriladi.
+              </p>
+              {profile?.telegramUsername && (
+                <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-blue-700">
+                  <Send className="h-3.5 w-3.5" />@{profile.telegramUsername}
+                </p>
+              )}
+            </div>
+          </div>
+          {profile?.telegramWriteAccess ? (
+            <span className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-xs font-bold text-emerald-700">
+              <CheckCircle2 className="h-4 w-4" /> Xabarlar yoqilgan
+            </span>
+          ) : (
+            <button
+              type="button"
+              disabled={enableNotifications.isPending}
+              onClick={() => enableNotifications.mutate()}
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 text-xs font-bold text-white disabled:opacity-50"
+            >
+              {enableNotifications.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Bell className="h-4 w-4" />
+              )}
+              Xabarlarni yoqish
+            </button>
+          )}
+        </div>
+        {enableNotifications.error && (
+          <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+            {errorText(enableNotifications.error, "Bildirishnomalar yoqilmadi")}
+          </p>
+        )}
+      </GlassPanel>
     </div>
   );
 }

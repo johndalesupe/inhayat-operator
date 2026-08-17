@@ -176,7 +176,9 @@ function TransactionRow({ item }: { item: OperatorWalletTransaction }) {
             {formatPrice(item.amount)}
           </p>
           <p className="mt-1 text-xs font-medium text-neutral-500">
-            {formatPrice(item.balanceAfter)}
+            {item.balanceAfter < 0
+              ? `${formatPrice(Math.abs(item.balanceAfter))} qarz`
+              : `${formatPrice(item.balanceAfter)} qoldiq`}
           </p>
         </div>
       </div>
@@ -190,6 +192,9 @@ export default function WalletPage() {
   const transactionsQuery = useOperatorTransactions();
   const createWithdrawal = useCreateOperatorWithdrawal();
   const wallet = walletQuery.data;
+  const walletBalance = wallet?.balance ?? 0;
+  const debtAmount = wallet?.debtAmount ?? Math.max(-walletBalance, 0);
+  const withdrawableBalance = Math.max(walletBalance, 0);
   const withdrawals = withdrawalsQuery.data ?? [];
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const transactions = useMemo(
@@ -250,8 +255,8 @@ export default function WalletPage() {
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard
-          label="Mavjud balans"
-          value={formatPrice(wallet?.balance ?? 0)}
+          label={debtAmount > 0 ? "Operator qarzi" : "Mavjud balans"}
+          value={formatPrice(debtAmount > 0 ? debtAmount : walletBalance)}
           icon={<Wallet className="h-5 w-5" />}
         />
         <StatCard
@@ -280,6 +285,13 @@ export default function WalletPage() {
         />
       </section>
 
+      {debtAmount > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium leading-6 text-amber-900">
+          Oldindan to&apos;lov sababli {formatPrice(debtAmount)} qarz mavjud.
+          Keyingi operator haqlari avval ushbu qarzni avtomatik qoplaydi.
+        </div>
+      )}
+
       <section className="grid gap-4 lg:grid-cols-[380px_1fr]">
         <GlassPanel className="p-5">
           <div className="flex items-center gap-2">
@@ -296,7 +308,7 @@ export default function WalletPage() {
               <input
                 type="number"
                 min={1}
-                max={wallet?.balance ?? undefined}
+                max={withdrawableBalance || undefined}
                 {...register("amount")}
                 className={`${inputClass} mt-1`}
                 placeholder="100000"
@@ -332,9 +344,15 @@ export default function WalletPage() {
               </div>
             )}
 
+            {debtAmount > 0 && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
+                Qarz yopilmaguncha pul yechish so&apos;rovi yuborib bo&apos;lmaydi.
+              </div>
+            )}
+
             <PrimaryButton
               type="submit"
-              disabled={!wallet?.balance || createWithdrawal.isPending}
+              disabled={withdrawableBalance <= 0 || createWithdrawal.isPending}
               className="w-full"
             >
               {createWithdrawal.isPending && (

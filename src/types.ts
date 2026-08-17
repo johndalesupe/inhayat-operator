@@ -168,6 +168,7 @@ export type OperatorWallet = {
   operatorName: string;
   operatorPhoneNumber: string;
   balance: number;
+  debtAmount: number;
   pendingFeeAmount: number;
   pendingFeeOrderCount: number;
   pendingWithdrawalAmount: number;

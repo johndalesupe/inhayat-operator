@@ -8,12 +8,16 @@ import {
   Clock3,
   MapPin,
   PackageCheck,
-  PhoneCall,
 } from "lucide-react";
+import { CustomerCallButton } from "@/src/components/CustomerCallButton";
 import { EmptyState, GlassPanel } from "@/src/components/ui";
 import { MarketerCommissionAudit } from "@/src/components/MarketerCommissionAudit";
 import { OrderCard } from "@/src/components/OrderCard";
-import { OrderEditor, type OrderFormValues } from "@/src/components/OrderEditor";
+import {
+  OrderEditor,
+  deliveryLabel,
+  type OrderFormValues,
+} from "@/src/components/OrderEditor";
 import {
   useCallbackLaterOperatorOrder,
   useCancelOperatorOrder,
@@ -35,6 +39,8 @@ const statusLabels: Record<OperatorOrder["status"], string> = {
   confirmed: "Tasdiqlangan",
   assigned: "Yetkazuvchiga berilgan",
   in_delivery: "Yetkazilmoqda",
+  returning: "Qaytarilmoqda",
+  returned: "Qaytarildi",
   delivered: "Yetkazilgan",
   cancelled: "Bekor qilingan",
 };
@@ -45,6 +51,8 @@ const statusClass: Record<OperatorOrder["status"], string> = {
   confirmed: "border-cyan-200 bg-cyan-50 text-cyan-800",
   assigned: "border-sky-200 bg-sky-50 text-sky-800",
   in_delivery: "border-amber-200 bg-amber-50 text-amber-800",
+  returning: "border-orange-200 bg-orange-50 text-orange-800",
+  returned: "border-amber-200 bg-amber-50 text-amber-800",
   delivered: "border-emerald-200 bg-emerald-50 text-emerald-800",
   cancelled: "border-rose-200 bg-rose-50 text-rose-700",
 };
@@ -57,7 +65,7 @@ function InfoRow({
   value: ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-blue-50 py-3 last:border-0">
+    <div className="flex items-start justify-between gap-3 border-b border-slate-100 py-2.5 last:border-0">
       <span className="text-sm font-bold text-neutral-500">{label}</span>
       <span className="text-right text-sm font-semibold text-neutral-950">
         {value}
@@ -76,9 +84,9 @@ function DetailPanel({
   children: ReactNode;
 }) {
   return (
-    <GlassPanel className="p-4">
+    <GlassPanel className="p-3">
       <div className="mb-2 flex items-center gap-2">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-700">
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
           {icon}
         </span>
         <h2 className="text-base font-semibold text-neutral-950">{title}</h2>
@@ -113,6 +121,7 @@ export default function OrderDetailsPage() {
     updateOrder.mutate({
       id,
       body: {
+        deliveryType: values.deliveryType,
         regionId: values.regionId,
         cityId: values.cityId,
         address: values.address,
@@ -159,38 +168,27 @@ export default function OrderDetailsPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <GlassPanel className="bg-gradient-to-r from-white/85 via-blue-50/80 to-cyan-50/80 p-4 sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+    <div className="space-y-3 pb-16 lg:pb-0">
+      <GlassPanel className="p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
             <Link
               href="/process"
-              className="inline-flex items-center gap-2 text-sm font-semibold text-blue-700"
+              aria-label="Jarayonga qaytish"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-700"
             >
               <ArrowLeft className="h-4 w-4" />
-              Jarayonga qaytish
             </Link>
-            <h1 className="mt-2 text-xl font-semibold text-neutral-950">
-              {order.orderNumber}
-            </h1>
-            <p className="mt-1 text-sm font-medium text-neutral-500">
-              {customerName(order)}
-            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <p className="text-base font-black text-slate-950">{order.orderNumber}</p>
+              <span className={`rounded-full border px-2 py-1 text-[10px] font-extrabold ${statusClass[order.status]}`}>{statusLabels[order.status]}</span>
+            </div>
+            <p className="mt-1 truncate text-xs font-semibold text-slate-500">{customerName(order)}</p>
             {order.customer.phoneNumber && (
-              <a
-                href={`tel:${order.customer.phoneNumber}`}
-                className="mt-3 hidden h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 via-green-600 to-teal-500 px-4 text-sm font-semibold text-white shadow-[0_0_24px_rgba(16,185,129,0.35)] transition hover:brightness-105 hover:shadow-[0_0_30px_rgba(16,185,129,0.45)] lg:inline-flex"
-              >
-                <PhoneCall className="h-4 w-4" />
-                Qo&apos;ng&apos;iroq qilish
-              </a>
+              <CustomerCallButton phoneNumber={order.customer.phoneNumber} compact className="mt-2 hidden lg:inline-flex" />
             )}
           </div>
-          <span
-            className={`w-fit rounded-full border px-3 py-1 text-xs font-semibold ${statusClass[order.status]}`}
-          >
-            {statusLabels[order.status]}
-          </span>
+          <p className="shrink-0 text-right text-sm font-black text-slate-950">{formatPrice(order.totalAmount)}</p>
         </div>
       </GlassPanel>
 
@@ -200,8 +198,8 @@ export default function OrderDetailsPage() {
         </div>
       )}
 
-      <section className="grid gap-4 xl:grid-cols-[1fr_440px]">
-        <div className="space-y-4">
+      <section className="grid gap-3 xl:grid-cols-[1fr_420px]">
+        <div className="space-y-3">
           <OrderCard
             order={order}
             showContact={false}
@@ -218,9 +216,7 @@ export default function OrderDetailsPage() {
                 <InfoRow label="Hudud" value={deliveryPlace(order)} />
                 <InfoRow
                   label="Turi"
-                  value={
-                    order.delivery?.type === "express" ? "Express" : "Oddiy"
-                  }
+                  value={deliveryLabel(order.delivery?.type ?? "normal")}
                 />
                 <InfoRow
                   label="Narx"
@@ -258,7 +254,7 @@ export default function OrderDetailsPage() {
             callbacking={callbackLaterOrder.isPending}
           />
         ) : (
-          <GlassPanel className="p-5">
+          <GlassPanel className="p-4">
             <h2 className="text-base font-semibold text-neutral-950">
               Buyurtma yopilgan
             </h2>
@@ -271,13 +267,10 @@ export default function OrderDetailsPage() {
       </section>
 
       {order.customer.phoneNumber && (
-        <a
-          href={`tel:${order.customer.phoneNumber}`}
-          className="fixed inset-x-4 bottom-24 z-40 flex h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 via-green-600 to-teal-500 text-sm font-semibold text-white shadow-[0_0_26px_rgba(16,185,129,0.42)] transition hover:brightness-105 lg:hidden"
-        >
-          <PhoneCall className="h-4 w-4" />
-          Qo&apos;ng&apos;iroq qilish
-        </a>
+        <CustomerCallButton
+          phoneNumber={order.customer.phoneNumber}
+          className="fixed inset-x-3 bottom-[calc(4.65rem+var(--tg-safe-bottom))] z-[70] lg:hidden"
+        />
       )}
     </div>
   );

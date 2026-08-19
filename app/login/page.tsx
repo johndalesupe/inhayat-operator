@@ -85,6 +85,20 @@ export default function LoginPage() {
     );
   }
 
+  if (!telegram.initData) {
+    return (
+      <main className="operator-stage flex min-h-dvh items-center justify-center px-4 py-8">
+        <GlassPanel className="w-full max-w-[390px] p-5 text-center">
+          <Loader2 className="mx-auto h-7 w-7 animate-spin text-blue-700" />
+          <h1 className="mt-4 text-base font-bold">Telegram sessiyasi ulanmoqda</h1>
+          <p className="mt-2 text-sm leading-6 text-neutral-600">
+            Xavfsiz kirish ma’lumoti olinmoqda. Oynani yopmang.
+          </p>
+        </GlassPanel>
+      </main>
+    );
+  }
+
   return (
     <main className="operator-stage flex min-h-dvh items-center justify-center px-3 py-5 text-neutral-950">
       <GlassPanel className="w-full max-w-[410px] p-4 sm:p-5">

@@ -29,7 +29,28 @@ import {
   textareaClass,
 } from "./ui";
 
+type OperatorDeliveryType = NonNullable<OperatorOrder["delivery"]>["type"];
+
+const OPERATIONAL_DELIVERY_TYPES: OperatorDeliveryType[] = [
+  "normal",
+  "private_dp",
+  "express",
+  "to_home",
+  "yandex",
+];
+
 const orderFormSchema = yup.object({
+  deliveryType: yup
+    .mixed<OperatorDeliveryType>()
+    .oneOf([
+      "normal",
+      "private_dp",
+      "express",
+      "to_home",
+      "yandex",
+      "taxi_delivery",
+    ])
+    .required(),
   regionId: yup.string().trim().required("Viloyat yoki shahar kerak"),
   cityId: yup.string().trim().required("Shahar yoki tuman kerak"),
   address: yup.string().trim().required("Manzil kerak"),
@@ -48,6 +69,60 @@ const orderFormSchema = yup.object({
     )
     .required(),
 });
+
+function deliveryAvailable(type: OperatorDeliveryType, city: DeliveryCity) {
+  const price = city.price;
+  if (type === "normal") {
+    return price.beepostCityCenterPrice != null || price.normalPrice != null;
+  }
+  if (type === "to_home") {
+    return (
+      price.beepostToHomePrice != null || price.toHomePrice != null
+    );
+  }
+  if (type === "private_dp") {
+    return price.privateDpPrice != null;
+  }
+  if (type === "express") {
+    return (
+      price.sameDayPrice != null || price.expressPrice != null
+    );
+  }
+  if (type === "yandex") return Boolean(price.yandexAvailable);
+  return false;
+}
+
+function deliveryPrice(type: OperatorDeliveryType, city: DeliveryCity) {
+  if (type === "normal") {
+    return Number(city.price.beepostCityCenterPrice ?? city.price.normalPrice ?? 0);
+  }
+  if (type === "to_home") {
+    return Number(city.price.beepostToHomePrice ?? city.price.toHomePrice ?? 0);
+  }
+  if (type === "private_dp") {
+    return Number(city.price.privateDpPrice ?? 0);
+  }
+  if (type === "express") {
+    return Number(city.price.sameDayPrice ?? city.price.expressPrice ?? 0);
+  }
+  return 0;
+}
+
+export function deliveryLabel(
+  type: OperatorDeliveryType,
+  city?: DeliveryCity | null,
+) {
+  const configured = city?.price.deliveryOptions?.find(
+    (option) => option.type === type,
+  );
+  if (configured?.titleUz) return configured.titleUz;
+  if (type === "normal") return "Beepost shahar markazi";
+  if (type === "private_dp") return "Xususiy DP";
+  if (type === "to_home") return "Beepost uyga";
+  if (type === "express") return "Shu kunning o'zida";
+  if (type === "yandex") return "Yandex";
+  return "Taksi (arxiv)";
+}
 
 export type OrderFormValues = yup.InferType<typeof orderFormSchema>;
 
@@ -71,6 +146,7 @@ function idString(value: unknown) {
 
 function defaultValues(order: OperatorOrder): OrderFormValues {
   return {
+    deliveryType: order.delivery?.type ?? "normal",
     regionId: idString(order.delivery?.regionId),
     cityId: idString(order.delivery?.cityId),
     address: order.delivery?.address ?? order.deliveryAddress ?? "",
@@ -140,6 +216,10 @@ export function OrderEditor({
     control: form.control,
     name: "cityId",
   });
+  const deliveryType = useWatch({
+    control: form.control,
+    name: "deliveryType",
+  });
   const regionsQuery = useOperatorRegions();
   const citiesQuery = useOperatorCities(selectedRegionId);
   const cities = useMemo(() => citiesQuery.data ?? [], [citiesQuery.data]);
@@ -159,22 +239,15 @@ export function OrderEditor({
   }
 
   const itemErrors = form.formState.errors.items;
-  const deliveryType = order.delivery?.type ?? "normal";
   const selectedDeliveryPrice = selectedCity
-    ? deliveryType === "express"
-      ? (selectedCity.price.expressPrice ?? 0)
-      : selectedCity.price.normalPrice
+    ? deliveryPrice(deliveryType, selectedCity)
     : (order.delivery?.price ?? 0);
 
   function cityLabel(city: DeliveryCity) {
-    const price =
-      deliveryType === "express"
-        ? (city.price.expressPrice ?? 0)
-        : city.price.normalPrice;
-    const unavailable =
-      deliveryType === "express" && !city.price.expressAvailable;
+    const price = deliveryPrice(deliveryType, city);
+    const unavailable = !deliveryAvailable(deliveryType, city);
     return `${city.name.uz} - ${formatPrice(price)}${
-      unavailable ? " (express yo'q)" : ""
+      unavailable ? " (mavjud emas)" : ""
     }`;
   }
 
@@ -267,8 +340,7 @@ export function OrderEditor({
                 {selectedRegionId ? "Tanlang" : "Avval viloyatni tanlang"}
               </option>
               {cities.map((city) => {
-                const disabled =
-                  deliveryType === "express" && !city.price.expressAvailable;
+                const disabled = !deliveryAvailable(deliveryType, city);
                 return (
                   <option key={city._id} value={city._id} disabled={disabled}>
                     {cityLabel(city)}
@@ -280,6 +352,68 @@ export function OrderEditor({
           </label>
         </div>
 
+        <fieldset>
+          <legend className="mb-1 block text-sm font-semibold text-neutral-700">
+            Yetkazish turi
+          </legend>
+          <div
+            className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+            role="radiogroup"
+            aria-label="Yetkazish turi"
+          >
+            {OPERATIONAL_DELIVERY_TYPES.map((type) => {
+              const available = selectedCity
+                ? deliveryAvailable(type, selectedCity)
+                : true;
+              const selected = deliveryType === type;
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  disabled={!available}
+                  onClick={() => {
+                    form.setValue("deliveryType", type, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    });
+                    if (
+                      selectedCity &&
+                      !deliveryAvailable(type, selectedCity)
+                    ) {
+                      form.setValue("cityId", "", {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      });
+                    }
+                  }}
+                  className={`min-h-11 rounded-xl border px-3 py-2 text-left text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                    selected
+                      ? "border-emerald-600 bg-emerald-50 text-emerald-900"
+                      : "border-neutral-200 bg-white text-neutral-700"
+                  }`}
+                >
+                  <span className="block">
+                    {deliveryLabel(type, selectedCity)}
+                  </span>
+                  {selectedCity && available ? (
+                    <span className="mt-0.5 block text-[10px] text-neutral-500">
+                      {formatPrice(deliveryPrice(type, selectedCity))}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+            {deliveryType === "taxi_delivery" ? (
+              <div className="min-h-11 rounded-xl border border-neutral-200 bg-neutral-100 px-3 py-2 text-xs font-semibold text-neutral-500">
+                {deliveryLabel("taxi_delivery")}
+              </div>
+            ) : null}
+          </div>
+          <FieldError message={form.formState.errors.deliveryType?.message} />
+        </fieldset>
+
         <label className="block">
           <span className="mb-1 block text-sm font-semibold text-neutral-700">
             Yetkazish narxi
@@ -287,7 +421,7 @@ export function OrderEditor({
           <div className="flex h-11 items-center gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-sm font-semibold text-neutral-950">
             <MapPin className="h-4 w-4 text-neutral-500" />
             <span>
-              {deliveryType === "express" ? "Express" : "Oddiy"} -{" "}
+              {deliveryLabel(deliveryType, selectedCity)} -{" "}
               {formatPrice(selectedDeliveryPrice)}
             </span>
           </div>

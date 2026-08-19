@@ -15,6 +15,7 @@ const statusLabels: Record<string, string> = {
   assigned: "Kuryerga biriktirilgan",
   in_delivery: "Yetkazilmoqda",
   returning: "Qaytarilmoqda",
+  returned: "Qaytarildi",
   delivered: "Yetkazildi",
   cancelled: "Bekor qilindi",
 };

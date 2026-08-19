@@ -153,6 +153,7 @@ export const operatorApi = {
   updateOrder: (
     id: string,
     body: {
+      deliveryType?: NonNullable<OperatorOrder["delivery"]>["type"];
       regionId?: string;
       cityId?: string;
       address?: string;

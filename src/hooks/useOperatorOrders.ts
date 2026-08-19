@@ -11,7 +11,8 @@ export function useStreamOrders() {
     queryKey: operatorKeys.stream,
     queryFn: () => operatorApi.stream(),
     enabled: Boolean(token),
-    refetchInterval: 30_000,
+    refetchInterval: 10_000,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -78,6 +79,9 @@ export function useUpdateOperatorOrder() {
     }: {
       id: string;
       body: {
+        deliveryType?: NonNullable<
+          import("../types").OperatorOrder["delivery"]
+        >["type"];
         regionId?: string;
         cityId?: string;
         address?: string;

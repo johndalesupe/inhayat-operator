@@ -65,7 +65,7 @@ export function OrderCard({
 
   return (
     <GlassPanel
-      className={`p-4 transition ${
+      className={`p-3 transition ${
         selected ? "border-emerald-200 bg-emerald-50/70" : ""
       } ${
         isExpress
@@ -73,41 +73,41 @@ export function OrderCard({
           : ""
       }`}
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="break-words text-base font-semibold text-neutral-950">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <h3 className="break-words text-sm font-black text-neutral-950">
               {order.orderNumber}
             </h3>
-            <span className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-xs font-semibold text-neutral-600">
+            <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500">
               {orderAge(order)}
             </span>
             {isExpress && (
-              <span className="rounded-full border border-amber-300 bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900">
-                Express - avval bog&apos;laning
+              <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-extrabold text-amber-900">
+                TEZKOR
               </span>
             )}
             {operatorFee > 0 && (
-              <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+              <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-800">
                 Operator haqi: {formatPrice(operatorFee)}
               </span>
             )}
             <span
-              className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+              className={`rounded-full px-2 py-1 text-[10px] font-bold ${
                 paymentSettled
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  ? "bg-emerald-50 text-emerald-800"
                   : paymentStatus === "failed" ||
                       paymentStatus === "cancelled" ||
                       paymentStatus === "refunded"
-                    ? "border-rose-200 bg-rose-50 text-rose-700"
-                    : "border-amber-200 bg-amber-50 text-amber-800"
+                    ? "bg-rose-50 text-rose-700"
+                    : "bg-amber-50 text-amber-800"
               }`}
             >
               {paymentMethodLabel} · {paymentStatusLabel[paymentStatus]}
             </span>
             {statusLabel && (
               <span
-                className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                className={`rounded-full border px-2 py-1 text-[10px] font-bold ${
                   statusClassName ?? "border-blue-200 bg-blue-50 text-blue-800"
                 }`}
               >
@@ -115,24 +115,24 @@ export function OrderCard({
               </span>
             )}
           </div>
-          <p className="mt-1 break-words text-sm font-medium text-neutral-500">
+          <p className="mt-1 break-words text-xs font-semibold text-neutral-500">
             {customerName(order)}
           </p>
         </div>
-        <div className="flex shrink-0 items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-white/75 px-3 py-2 sm:min-w-40">
-          <div className="sm:text-right">
-            <p className="text-base font-semibold text-neutral-950">
+        <div className="flex shrink-0 items-center gap-2">
+          <div className="text-right">
+            <p className="text-sm font-black text-neutral-950">
               {formatPrice(order.totalAmount)}
             </p>
-            <p className="text-xs font-medium text-neutral-500">
-              {order.items.length} mahsulot
+            <p className="text-[10px] font-semibold text-neutral-500">
+              {order.items.length} tur
             </p>
           </div>
           {detailHref && (
             <Link
               href={detailHref}
               aria-label="Buyurtma tafsilotlari"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neutral-950 text-white transition hover:bg-neutral-800"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-white transition active:scale-95"
             >
               <Eye className="h-4 w-4" />
             </Link>
@@ -141,7 +141,7 @@ export function OrderCard({
       </div>
 
       {(showContact || showDelivery) && (
-        <div className="mt-4 grid gap-2 text-sm font-medium text-neutral-600 sm:grid-cols-2">
+        <div className="mt-3 grid gap-2 text-xs font-semibold text-neutral-600 sm:grid-cols-2">
           {showContact && order.customer.phoneNumber && (
             <div className="flex min-w-0 items-center gap-2">
               <Phone className="h-4 w-4 shrink-0 text-neutral-500" />
@@ -162,24 +162,24 @@ export function OrderCard({
       )}
 
       {showItems && (
-        <div className="mt-4 space-y-2">
+        <div className="mt-3 space-y-1.5">
           {order.items.map((item) => (
             <div
               key={item.numericId}
-              className="grid grid-cols-[48px_minmax(0,1fr)] items-center gap-3 rounded-xl border border-neutral-100 bg-white/80 p-2"
+              className="grid grid-cols-[40px_minmax(0,1fr)] items-center gap-2 rounded-xl bg-slate-50 p-1.5"
             >
-              <div className="relative h-12 w-12 overflow-hidden rounded-lg border border-neutral-200 bg-white">
+              <div className="relative h-10 w-10 overflow-hidden rounded-lg bg-white">
                 {item.thumbnailUrl ? (
                   <Image
                     src={item.thumbnailUrl}
                     alt={item.name_uz}
                     fill
-                    sizes="48px"
+                    sizes="40px"
                     className="object-cover"
                     unoptimized
                   />
                 ) : (
-                  <ShoppingBag className="m-3 h-6 w-6 text-neutral-400" />
+                  <ShoppingBag className="m-2.5 h-5 w-5 text-neutral-400" />
                 )}
               </div>
               <div className="min-w-0 flex-1">

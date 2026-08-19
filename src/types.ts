@@ -51,7 +51,14 @@ export type OrderDelivery = {
   cityId: string;
   cityNameUz: string;
   cityNameRu: string;
-  type: "normal" | "express";
+  type:
+    | "normal"
+    | "private_dp"
+    | "express"
+    | "to_home"
+    | "yandex"
+    | "taxi_delivery";
+  provider?: "beepost" | "private_dp" | "yandex" | "same_day" | "legacy_taxi";
   price: number;
   address: string;
 };
@@ -70,6 +77,28 @@ export type DeliveryCityPrice = {
   normalPrice: number;
   expressAvailable: boolean;
   expressPrice: number | null;
+  toHomeAvailable?: boolean;
+  toHomePrice?: number | null;
+  yandexAvailable?: boolean;
+  beepostEnabled?: boolean;
+  beepostCustomerVisible?: boolean;
+  beepostCityCenterPrice?: number | null;
+  beepostToHomePrice?: number | null;
+  sameDayAvailable?: boolean;
+  sameDayPrice?: number | null;
+  sameDayRequiresPrepayment?: boolean;
+  privateDpEnabled?: boolean;
+  privateDpCustomerVisible?: boolean;
+  privateDpPrice?: number | null;
+  deliveryOptions?: Array<{
+    type: Exclude<NonNullable<OperatorOrder["delivery"]>["type"], "taxi_delivery">;
+    customerVisible: boolean;
+    titleUz: string;
+    titleRu: string;
+    descriptionUz: string;
+    descriptionRu: string;
+    sortOrder: number;
+  }>;
 };
 
 export type DeliveryCity = {
@@ -147,6 +176,8 @@ export type OperatorOrder = {
     | "confirmed"
     | "assigned"
     | "in_delivery"
+    | "returning"
+    | "returned"
     | "delivered"
     | "cancelled";
   notes: string | null;

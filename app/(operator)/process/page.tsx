@@ -14,6 +14,8 @@ const statusLabels: Record<OperatorOrder["status"], string> = {
   confirmed: "Tasdiqlangan",
   assigned: "Yetkazuvchiga berilgan",
   in_delivery: "Yetkazilmoqda",
+  returning: "Qaytarilmoqda",
+  returned: "Qaytarildi",
   delivered: "Yetkazilgan",
   cancelled: "Bekor qilingan",
 };
@@ -24,6 +26,8 @@ const statusClass: Record<OperatorOrder["status"], string> = {
   confirmed: "border-emerald-200 bg-emerald-50 text-emerald-800",
   assigned: "border-violet-200 bg-violet-50 text-violet-800",
   in_delivery: "border-amber-200 bg-amber-50 text-amber-800",
+  returning: "border-orange-200 bg-orange-50 text-orange-800",
+  returned: "border-amber-200 bg-amber-50 text-amber-800",
   delivered: "border-emerald-200 bg-emerald-50 text-emerald-800",
   cancelled: "border-rose-200 bg-rose-50 text-rose-700",
 };
@@ -43,6 +47,8 @@ export default function ProcessPage() {
       confirmed: 0,
       assigned: 0,
       in_delivery: 0,
+      returning: 0,
+      returned: 0,
       delivered: 0,
       cancelled: 0,
     };
@@ -96,24 +102,8 @@ export default function ProcessPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <GlassPanel className="bg-gradient-to-r from-white/85 via-blue-50/80 to-cyan-50/80 p-4 sm:p-5">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-lg font-semibold text-neutral-950">
-              Jarayondagi buyurtmalar
-            </h1>
-            <p className="mt-1 text-sm font-medium text-neutral-500">
-              Qabul qilingan buyurtmalar statusi va tafsilotlari.
-            </p>
-          </div>
-          <span className="w-fit rounded-full border border-blue-100 bg-white px-3 py-1 text-xs font-semibold text-blue-800">
-            {orders.length} ta buyurtma
-          </span>
-        </div>
-      </GlassPanel>
-
-      <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="space-y-2.5">
+      <div className="flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {(["all", ...Object.keys(statusLabels)] as Array<
           OperatorOrder["status"] | "all"
         >).map((item) => (
@@ -121,10 +111,10 @@ export default function ProcessPage() {
             key={item}
             type="button"
             onClick={() => setStatus(item)}
-            className={`h-9 shrink-0 rounded-full border px-3 text-xs font-semibold transition ${
+            className={`h-9 shrink-0 rounded-xl px-3 text-[11px] font-extrabold transition ${
               status === item
-                ? "border-blue-700 bg-blue-700 text-white"
-                : "border-blue-100 bg-white/80 text-blue-900 hover:bg-cyan-50"
+                ? "bg-blue-700 text-white"
+                : "bg-white text-slate-600"
             }`}
           >
             {item === "all" ? "Barchasi" : statusLabels[item]} ({counts[item]})
@@ -138,7 +128,7 @@ export default function ProcessPage() {
         </div>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-2.5 xl:grid-cols-2">
         {filteredOrders.map((order) => (
           <OrderCard
             key={order._id}

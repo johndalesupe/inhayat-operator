@@ -10,7 +10,6 @@ import { GlassPanel } from "./ui";
 
 const statusLabels: Record<string, string> = {
   pending: "Kutilmoqda",
-  callback_later: "Qayta qo'ng'iroq",
   confirmed: "Tasdiqlangan",
   assigned: "Kuryerga biriktirilgan",
   in_delivery: "Yetkazilmoqda",

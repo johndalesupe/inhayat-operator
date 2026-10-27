@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
   Loader2,
   MapPin,
   Phone,
+  Save,
+  Truck,
+  Zap,
+  House,
+  Package,
   UserRound,
   XCircle,
 } from "lucide-react";
@@ -21,6 +25,7 @@ import { formatPrice } from "../lib/format";
 import type { DeliveryCity, OperatorOrder } from "../types";
 import {
   ActionButton,
+  BottomSheet,
   EmptyState,
   FieldError,
   GlassPanel,
@@ -76,17 +81,13 @@ function deliveryAvailable(type: OperatorDeliveryType, city: DeliveryCity) {
     return price.beepostCityCenterPrice != null || price.normalPrice != null;
   }
   if (type === "to_home") {
-    return (
-      price.beepostToHomePrice != null || price.toHomePrice != null
-    );
+    return price.beepostToHomePrice != null || price.toHomePrice != null;
   }
   if (type === "private_dp") {
     return price.privateDpPrice != null;
   }
   if (type === "express") {
-    return (
-      price.sameDayPrice != null || price.expressPrice != null
-    );
+    return price.sameDayPrice != null || price.expressPrice != null;
   }
   if (type === "yandex") return Boolean(price.yandexAvailable);
   return false;
@@ -94,7 +95,9 @@ function deliveryAvailable(type: OperatorDeliveryType, city: DeliveryCity) {
 
 function deliveryPrice(type: OperatorDeliveryType, city: DeliveryCity) {
   if (type === "normal") {
-    return Number(city.price.beepostCityCenterPrice ?? city.price.normalPrice ?? 0);
+    return Number(
+      city.price.beepostCityCenterPrice ?? city.price.normalPrice ?? 0,
+    );
   }
   if (type === "to_home") {
     return Number(city.price.beepostToHomePrice ?? city.price.toHomePrice ?? 0);
@@ -158,42 +161,31 @@ function defaultValues(order: OperatorOrder): OrderFormValues {
   };
 }
 
-function FullscreenOverlay({ children }: { children: ReactNode }) {
-  if (typeof document === "undefined") return null;
-  return createPortal(children, document.body);
-}
-
 export function OrderEditor({
   order,
   onSave,
   onConfirm,
   onCancel,
-  onCallbackLater,
   canConfirm,
-  canCallbackLater,
   confirmedPopupOpen,
   onCloseConfirmedPopup,
   saving,
   confirming,
   cancelling,
-  callbacking,
 }: {
   order: OperatorOrder | null;
   onSave: (id: string, values: OrderFormValues) => void;
   onConfirm: (id: string, notes?: string) => void;
   onCancel: (id: string, cancelReason?: string) => void;
-  onCallbackLater: (id: string, notes?: string) => void;
   canConfirm: boolean;
-  canCallbackLater: boolean;
   confirmedPopupOpen: boolean;
   onCloseConfirmedPopup: () => void;
   saving: boolean;
   confirming: boolean;
   cancelling: boolean;
-  callbacking: boolean;
 }) {
   const [pendingAction, setPendingAction] = useState<
-    "confirm" | "cancel" | "callback" | null
+    "confirm" | "cancel" | null
   >(null);
   const [cancelReason, setCancelReason] = useState("");
   const form = useForm<OrderFormValues>({
@@ -266,29 +258,21 @@ export function OrderEditor({
       return;
     }
 
-    if (pendingAction === "callback") {
-      void form.handleSubmit((values) => {
-        onCallbackLater(order._id, values.notes);
-        setPendingAction(null);
-      })();
-      return;
-    }
-
     onCancel(order._id, cancelReason.trim() || undefined);
     setPendingAction(null);
   }
 
   return (
-    <GlassPanel className="p-5">
-      <div className="mb-5">
+    <GlassPanel className="p-3.5">
+      <div className="mb-3">
         <p className="text-sm font-bold text-neutral-500">Buyurtma tahriri</p>
         <h2 className="text-lg font-semibold text-neutral-950">
           Yetkazish va tasdiqlash
         </h2>
       </div>
 
-      <form className="space-y-4">
-        <div className="rounded-xl border border-neutral-200 bg-white/80 p-3">
+      <form className="space-y-3">
+        <div className="rounded-xl bg-[#f6f5fb] p-3">
           <span className="mb-1 block text-sm font-semibold text-neutral-700">
             Telefon
           </span>
@@ -388,13 +372,22 @@ export function OrderEditor({
                       });
                     }
                   }}
-                  className={`min-h-11 rounded-xl border px-3 py-2 text-left text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                  className={`min-h-11 rounded-xl px-3 py-2 text-left text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
                     selected
-                      ? "border-emerald-600 bg-emerald-50 text-emerald-900"
-                      : "border-neutral-200 bg-white text-neutral-700"
+                      ? "bg-blue-50 text-blue-800 ring-1 ring-blue-100"
+                      : "bg-[#f6f5fb] text-neutral-600"
                   }`}
                 >
-                  <span className="block">
+                  <span className="flex items-center gap-1.5">
+                    {type === "express" ? (
+                      <Zap size={14} />
+                    ) : type === "to_home" ? (
+                      <House size={14} />
+                    ) : type === "private_dp" ? (
+                      <Package size={14} />
+                    ) : (
+                      <Truck size={14} />
+                    )}
                     {deliveryLabel(type, selectedCity)}
                   </span>
                   {selectedCity && available ? (
@@ -418,7 +411,7 @@ export function OrderEditor({
           <span className="mb-1 block text-sm font-semibold text-neutral-700">
             Yetkazish narxi
           </span>
-          <div className="flex h-11 items-center gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-sm font-semibold text-neutral-950">
+          <div className="flex h-11 items-center gap-2 rounded-xl bg-[#f6f5fb] px-3 text-sm font-semibold text-neutral-950">
             <MapPin className="h-4 w-4 text-neutral-500" />
             <span>
               {deliveryLabel(deliveryType, selectedCity)} -{" "}
@@ -433,7 +426,7 @@ export function OrderEditor({
           </span>
           <textarea
             {...form.register("address")}
-            rows={3}
+            rows={2}
             className={textareaClass}
           />
           <FieldError message={form.formState.errors.address?.message} />
@@ -447,7 +440,7 @@ export function OrderEditor({
             {order.items.map((item, index) => (
               <div
                 key={item.numericId}
-                className="grid grid-cols-[1fr_96px] items-start gap-3 rounded-xl border border-neutral-200 bg-white/80 p-3"
+                className="grid grid-cols-[1fr_96px] items-start gap-3 rounded-xl bg-[#f6f5fb] p-3"
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-neutral-950">
@@ -460,6 +453,7 @@ export function OrderEditor({
                 <div>
                   <input
                     type="number"
+                    aria-label={`${item.name_uz} miqdori`}
                     min={1}
                     {...form.register(`items.${index}.quantity`)}
                     className={`${inputClass} h-10 px-3`}
@@ -483,12 +477,12 @@ export function OrderEditor({
           </span>
           <textarea
             {...form.register("notes")}
-            rows={3}
+            rows={2}
             className={textareaClass}
           />
         </label>
 
-        <div className="rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 text-neutral-950">
+        <div className="rounded-xl bg-[#f6f5fb]/80 p-4 text-neutral-950">
           <div className="flex justify-between text-sm font-semibold text-neutral-600">
             <span>Mahsulotlar</span>
             <span>{formatPrice(order.itemsAmount)}</span>
@@ -499,7 +493,7 @@ export function OrderEditor({
               <span>{formatPrice(order.delivery.price)}</span>
             </div>
           )}
-          <div className="mt-3 flex justify-between border-t border-neutral-200 pt-3 text-base font-semibold">
+          <div className="mt-3 flex justify-between pt-3 text-base font-semibold">
             <span>Qolgan summa</span>
             <span>{formatPrice(order.totalAmount)}</span>
           </div>
@@ -511,20 +505,12 @@ export function OrderEditor({
             isLoading={saving}
             onClick={form.handleSubmit((values) => onSave(order._id, values))}
           >
-            Saqlash
+            {!saving && <Save size={15} />} O&apos;zgarishlarni saqlash
           </ActionButton>
-          <div
-            className={
-              canConfirm && canCallbackLater
-                ? "grid gap-2 sm:grid-cols-3"
-                : canConfirm
-                  ? "grid grid-cols-2 gap-2"
-                  : "grid gap-2"
-            }
-          >
+          <div className={canConfirm ? "grid grid-cols-2 gap-2" : "grid gap-2"}>
             <ActionButton
               type="button"
-              disabled={cancelling || confirming || callbacking}
+              disabled={cancelling || confirming}
               onClick={() => setPendingAction("cancel")}
               className="border-red-200 bg-red-50 text-red-700 hover:border-red-300 hover:bg-red-100"
             >
@@ -535,25 +521,10 @@ export function OrderEditor({
               )}
               Bekor qilish
             </ActionButton>
-            {canCallbackLater && (
-              <ActionButton
-                type="button"
-                disabled={confirming || cancelling || callbacking}
-                onClick={() => setPendingAction("callback")}
-                className="border-amber-200 bg-amber-50 text-amber-800 hover:border-amber-300 hover:bg-amber-100"
-              >
-                {callbacking ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Phone className="h-4 w-4" />
-                )}
-                Keyinroq
-              </ActionButton>
-            )}
             {canConfirm ? (
               <PrimaryButton
                 type="button"
-                disabled={confirming || cancelling || callbacking}
+                disabled={confirming || cancelling}
                 onClick={openConfirmAction}
                 className="from-emerald-600 via-green-600 to-teal-500"
               >
@@ -574,131 +545,77 @@ export function OrderEditor({
         </div>
       </form>
 
-      {pendingAction && (
-        <FullscreenOverlay>
-          <div className="fixed inset-0 z-50 flex items-end bg-neutral-950/45 p-0 sm:items-center sm:justify-center sm:p-4">
-            <div className="w-full rounded-t-3xl border border-white/80 bg-white p-5 sm:max-w-md sm:rounded-2xl">
-              <div className="mb-4 flex items-start gap-3">
-                <span
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
-                    pendingAction === "cancel"
-                      ? "bg-red-50 text-red-700"
-                      : pendingAction === "callback"
-                        ? "bg-amber-50 text-amber-700"
-                        : "bg-emerald-50 text-emerald-700"
-                  }`}
-                >
-                  {pendingAction === "cancel" ? (
-                    <XCircle className="h-5 w-5" />
-                  ) : pendingAction === "callback" ? (
-                    <Phone className="h-5 w-5" />
-                  ) : (
-                    <CheckCircle2 className="h-5 w-5" />
-                  )}
-                </span>
-                <div>
-                  <h3 className="text-base font-semibold text-neutral-950">
-                    {pendingAction === "cancel"
-                      ? "Buyurtmani bekor qilasizmi?"
-                      : pendingAction === "callback"
-                        ? "Keyinroq qo'ng'iroq qilinsinmi?"
-                        : "Buyurtmani tasdiqlaysizmi?"}
-                  </h3>
-                  <p className="mt-1 text-sm font-medium leading-6 text-neutral-500">
-                    {pendingAction === "cancel"
-                      ? "Bekor qilingandan keyin buyurtma jarayondan chiqadi."
-                      : pendingAction === "callback"
-                        ? "Mijoz telefonga javob bermagan bo'lsa, buyurtma qayta qo'ng'iroq qilish holatiga o'tadi."
-                        : "Tasdiqlangandan keyin buyurtma keyingi jarayonga o'tadi."}
-                  </p>
-                </div>
-              </div>
-
-              {pendingAction === "cancel" && (
-                <label className="mb-4 block">
-                  <span className="mb-1 block text-sm font-semibold text-neutral-700">
-                    Bekor qilish sababi
-                  </span>
-                  <textarea
-                    value={cancelReason}
-                    onChange={(event) => setCancelReason(event.target.value)}
-                    rows={3}
-                    className={textareaClass}
-                    placeholder="Masalan: mijoz fikridan qaytdi"
-                  />
-                </label>
-              )}
-
-              <div className="grid grid-cols-2 gap-2">
-                <ActionButton
-                  type="button"
-                  onClick={() => setPendingAction(null)}
-                  disabled={confirming || cancelling || callbacking}
-                >
-                  Ortga
-                </ActionButton>
-                <button
-                  type="button"
-                  onClick={submitPendingAction}
-                  disabled={confirming || cancelling || callbacking}
-                  className={`inline-flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50 ${
-                    pendingAction === "cancel"
-                      ? "bg-red-600"
-                      : pendingAction === "callback"
-                        ? "bg-amber-600"
-                        : "bg-gradient-to-r from-emerald-600 via-green-600 to-teal-500"
-                  }`}
-                >
-                  {confirming || cancelling || callbacking ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : pendingAction === "cancel" ? (
-                    <XCircle className="h-4 w-4" />
-                  ) : pendingAction === "callback" ? (
-                    <Phone className="h-4 w-4" />
-                  ) : (
-                    <CheckCircle2 className="h-4 w-4" />
-                  )}
-                  {pendingAction === "cancel"
-                    ? "Bekor qilish"
-                    : pendingAction === "callback"
-                      ? "Keyinroq"
-                      : "Tasdiqlash"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </FullscreenOverlay>
-      )}
-
-      {confirmedPopupOpen && (
-        <FullscreenOverlay>
-          <div className="fixed inset-0 z-50 flex items-end bg-neutral-950/45 p-0 sm:items-center sm:justify-center sm:p-4">
-            <div className="w-full rounded-t-3xl border border-white/80 bg-white p-5 sm:max-w-md sm:rounded-2xl">
-              <div className="mb-5 flex items-start gap-3">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
-                  <CheckCircle2 className="h-5 w-5" />
-                </span>
-                <div>
-                  <h3 className="text-base font-semibold text-neutral-950">
-                    Buyurtma tasdiqlandi
-                  </h3>
-                  <p className="mt-1 text-sm font-medium leading-6 text-neutral-500">
-                    Buyurtma muvaffaqiyatli tasdiqlandi. Endi uni qayta
-                    tasdiqlab bo&apos;lmaydi.
-                  </p>
-                </div>
-              </div>
-              <PrimaryButton
-                type="button"
-                onClick={onCloseConfirmedPopup}
-                className="w-full from-emerald-600 via-green-600 to-teal-500"
-              >
-                Tushunarli
-              </PrimaryButton>
-            </div>
-          </div>
-        </FullscreenOverlay>
-      )}
+      <BottomSheet
+        open={Boolean(pendingAction)}
+        onClose={() => setPendingAction(null)}
+        title={
+          pendingAction === "cancel"
+            ? "Buyurtmani bekor qilasizmi?"
+            : "Buyurtmani tasdiqlaysizmi?"
+        }
+        description={
+          pendingAction === "cancel"
+            ? "Bekor qilingandan keyin buyurtma jarayondan chiqadi."
+            : "Tasdiqlangandan keyin buyurtma keyingi jarayonga o'tadi."
+        }
+      >
+        {pendingAction === "cancel" && (
+          <label className="mb-4 block">
+            <span className="mb-1 block text-xs font-semibold text-slate-600">
+              Bekor qilish sababi
+            </span>
+            <textarea
+              value={cancelReason}
+              onChange={(event) => setCancelReason(event.target.value)}
+              rows={3}
+              className={textareaClass}
+              placeholder="Masalan: mijoz fikridan qaytdi"
+            />
+          </label>
+        )}
+        <div className="grid grid-cols-2 gap-2">
+          <ActionButton
+            type="button"
+            onClick={() => setPendingAction(null)}
+            disabled={confirming || cancelling}
+          >
+            Ortga
+          </ActionButton>
+          <button
+            type="button"
+            onClick={submitPendingAction}
+            disabled={confirming || cancelling}
+            className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl px-3 text-xs font-semibold text-white transition disabled:opacity-50 ${pendingAction === "cancel" ? "bg-rose-600 hover:bg-rose-700" : "bg-emerald-600 hover:bg-emerald-700"}`}
+          >
+            {confirming || cancelling ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : pendingAction === "cancel" ? (
+              <XCircle size={15} />
+            ) : (
+              <CheckCircle2 size={15} />
+            )}
+            {pendingAction === "cancel" ? "Bekor qilish" : "Tasdiqlash"}
+          </button>
+        </div>
+      </BottomSheet>
+      <BottomSheet
+        open={confirmedPopupOpen}
+        onClose={onCloseConfirmedPopup}
+        title="Buyurtma tasdiqlandi"
+        description="Buyurtma muvaffaqiyatli tasdiqlandi."
+      >
+        <div className="mb-4 flex justify-center rounded-xl bg-emerald-50 p-5">
+          <CheckCircle2 size={36} className="text-emerald-600" />
+        </div>
+        <PrimaryButton
+          type="button"
+          onClick={onCloseConfirmedPopup}
+          className="w-full"
+        >
+          <CheckCircle2 size={15} />
+          Tushunarli
+        </PrimaryButton>
+      </BottomSheet>
     </GlassPanel>
   );
 }

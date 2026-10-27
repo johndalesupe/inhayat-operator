@@ -172,7 +172,6 @@ export type OperatorOrder = {
   deliveryAddress: string | null;
   status:
     | "pending"
-    | "callback_later"
     | "confirmed"
     | "assigned"
     | "in_delivery"

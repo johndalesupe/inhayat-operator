@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Eye, PackageCheck, Phone, ShoppingBag } from "lucide-react";
+import { ArrowUpRight, MapPin, Phone, ShoppingBag } from "lucide-react";
 import {
   customerName,
   deliveryPlace,
@@ -65,30 +65,26 @@ export function OrderCard({
 
   return (
     <GlassPanel
-      className={`p-3 transition ${
-        selected ? "border-emerald-200 bg-emerald-50/70" : ""
-      } ${
-        isExpress
-          ? "border-amber-300 bg-amber-50/70 ring-1 ring-amber-200/80"
-          : ""
-      }`}
+      className={`order-tile p-3.5 transition ${
+        selected ? "bg-emerald-50/70" : ""
+      } ${isExpress ? "express" : ""}`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
-            <h3 className="break-words text-sm font-black text-neutral-950">
+            <h3 className="break-words text-sm font-bold text-neutral-950">
               {order.orderNumber}
             </h3>
-            <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500">
+            <span className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500">
               {orderAge(order)}
             </span>
             {isExpress && (
-              <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-extrabold text-amber-900">
+              <span className="rounded-md bg-amber-100 px-2 py-1 text-[10px] font-semibold text-amber-900">
                 TEZKOR
               </span>
             )}
             {operatorFee > 0 && (
-              <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-800">
+              <span className="rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-800">
                 Operator haqi: {formatPrice(operatorFee)}
               </span>
             )}
@@ -107,7 +103,7 @@ export function OrderCard({
             </span>
             {statusLabel && (
               <span
-                className={`rounded-full border px-2 py-1 text-[10px] font-bold ${
+                className={`rounded-md px-2 py-1 text-[10px] font-bold ${
                   statusClassName ?? "border-blue-200 bg-blue-50 text-blue-800"
                 }`}
               >
@@ -121,7 +117,7 @@ export function OrderCard({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <div className="text-right">
-            <p className="text-sm font-black text-neutral-950">
+            <p className="text-sm font-bold text-neutral-950">
               {formatPrice(order.totalAmount)}
             </p>
             <p className="text-[10px] font-semibold text-neutral-500">
@@ -132,9 +128,10 @@ export function OrderCard({
             <Link
               href={detailHref}
               aria-label="Buyurtma tafsilotlari"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-white transition active:scale-95"
+              className="flex h-9 shrink-0 items-center justify-center gap-1 rounded-xl bg-blue-50 px-2 text-[10px] font-semibold text-blue-700 transition active:scale-95"
             >
-              <Eye className="h-4 w-4" />
+              {order.status === "pending" ? "Ishlash" : "Ko'rish"}
+              <ArrowUpRight className="h-3.5 w-3.5" />
             </Link>
           )}
         </div>
@@ -152,7 +149,7 @@ export function OrderCard({
           )}
           {showDelivery && (
             <div className="flex min-w-0 items-center gap-2">
-              <PackageCheck className="h-4 w-4 shrink-0 text-neutral-500" />
+              <MapPin className="h-4 w-4 shrink-0 text-neutral-400" />
               <span className="min-w-0 break-words">
                 {deliveryPlace(order)}
               </span>
@@ -196,7 +193,7 @@ export function OrderCard({
       )}
 
       {showPayment && (
-        <div className="mt-3 rounded-xl border border-neutral-200 bg-neutral-50/80 p-3">
+        <div className="mt-3 rounded-xl bg-[#f6f5fb] p-3">
           <div className="mb-2 flex items-center justify-between gap-3">
             <p className="text-sm font-semibold text-neutral-950">
               To&apos;lov
@@ -218,7 +215,7 @@ export function OrderCard({
                 {formatPrice(deliveryPrice)}
               </span>
             </div>
-            <div className="flex items-center justify-between gap-3 border-t border-neutral-200 pt-2">
+            <div className="flex items-center justify-between gap-3 pt-2">
               <span className="font-medium text-neutral-500">Jami</span>
               <span className="font-semibold text-neutral-900">
                 {formatPrice(grossAmount)}

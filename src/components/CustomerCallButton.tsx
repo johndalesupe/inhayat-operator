@@ -30,7 +30,7 @@ export function CustomerCallButton({
         haptic("light");
         window.location.assign(href);
       }}
-      className={`inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 font-extrabold text-white transition active:scale-[0.98] ${
+      className={`call-button items-center justify-center gap-2 rounded-xl bg-emerald-600 font-extrabold text-white transition active:scale-[0.98] ${
         compact ? "h-10 px-3 text-xs" : "h-12 px-5 text-sm"
       } ${className}`}
     >

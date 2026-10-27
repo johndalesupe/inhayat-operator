@@ -124,8 +124,8 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
         app.ready();
         app.expand();
         app.enableClosingConfirmation?.();
-        app.setHeaderColor?.("#f5f7fb");
-        app.setBackgroundColor?.("#f5f7fb");
+        app.setHeaderColor?.("#f6f7fb");
+        app.setBackgroundColor?.("#f6f7fb");
         app.setBottomBarColor?.("#ffffff");
         try {
           app.requestFullscreen?.();

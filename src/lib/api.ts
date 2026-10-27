@@ -172,12 +172,6 @@ export const operatorApi = {
       body: JSON.stringify({ notes }),
     }),
 
-  callbackLaterOrder: (id: string, notes?: string) =>
-    request<OperatorOrder>(`/operator/orders/${id}/callback-later`, {
-      method: "POST",
-      body: JSON.stringify({ notes }),
-    }),
-
   cancelOrder: (id: string, cancelReason?: string) =>
     request<OperatorOrder>(`/operator/orders/${id}/cancel`, {
       method: "POST",

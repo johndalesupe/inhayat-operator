@@ -20,7 +20,10 @@ function durationText(totalSeconds: number) {
     .join(":");
 }
 
-function useStreamClock(settings: OperatorSettings | undefined, syncedAt: number) {
+function useStreamClock(
+  settings: OperatorSettings | undefined,
+  syncedAt: number,
+) {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -68,33 +71,35 @@ export function LiveStreamStatus({
 
   return (
     <div
-      className={`flex items-center gap-2 bg-slate-950 text-white ${
-        compact ? "rounded-[16px] px-3 py-2.5" : "rounded-[18px] px-3.5 py-3"
+      className={`flex items-center gap-2 bg-white text-slate-700 ${
+        compact ? "rounded-[16px] px-3 py-2.5" : "rounded-xl px-3.5 py-2"
       }`}
     >
       <span
         className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-          isOpen ? "bg-emerald-400/15 text-emerald-300" : "bg-white/10 text-slate-300"
+          isOpen
+            ? "bg-emerald-50 text-emerald-600"
+            : "bg-slate-100 text-slate-400"
         }`}
       >
         <Radio className="h-4 w-4" />
         {isOpen ? (
-          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-emerald-400 ring-2 ring-slate-950" />
+          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-white" />
         ) : null}
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <p className="truncate text-xs font-extrabold">
-            {isOpen ? "Buyurtmalar oqimi" : "Oqim yopiq"}
+            {isOpen ? "Oqim ochiq" : "Oqim yopiq"}
           </p>
-          <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-slate-200">
+          <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-slate-500">
             {count}
           </span>
         </div>
         <p className="mt-0.5 flex items-center gap-1 text-[10px] font-semibold text-slate-400">
           <Clock3 className="h-3 w-3" />
           {clock.label}
-          <span className="font-mono font-bold tabular-nums text-white">
+          <span className="font-mono font-bold tabular-nums text-slate-700">
             {clock.value}
           </span>
         </p>
@@ -104,7 +109,7 @@ export function LiveStreamStatus({
         onClick={onRefresh}
         disabled={fetching}
         aria-label="Oqimni yangilash"
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white disabled:opacity-60"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#f4f2fc] text-blue-700 hover:bg-blue-50 disabled:opacity-60"
       >
         <RefreshCw className={`h-4 w-4 ${fetching ? "animate-spin" : ""}`} />
       </button>

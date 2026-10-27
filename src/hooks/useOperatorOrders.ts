@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { operatorApi } from "../lib/api";
 import { operatorKeys } from "../lib/queryKeys";
 import { useAppSelector } from "../store/hooks";
+import type { ProcessResponse, StreamResponse } from "../types";
 
 export function useStreamOrders() {
   const token = useAppSelector((state) => state.auth.token);
@@ -61,11 +62,35 @@ export function useAcceptOrder() {
   return useMutation({
     mutationFn: (id: string) => operatorApi.acceptOrder(id),
     onSuccess: (order) => {
+      // Move the accepted order between queues immediately, then reconcile
+      // with the server so the same order never offers a second acceptance.
+      queryClient.setQueryData<StreamResponse>(
+        operatorKeys.stream,
+        (current) =>
+          current
+            ? {
+                ...current,
+                items: current.items.filter((item) => item._id !== order._id),
+              }
+            : current,
+      );
+      queryClient.setQueryData<ProcessResponse>(
+        operatorKeys.process,
+        (current) => ({
+          items: [
+            order,
+            ...(current?.items ?? []).filter((item) => item._id !== order._id),
+          ],
+        }),
+      );
       void queryClient.invalidateQueries({ queryKey: operatorKeys.stream });
       void queryClient.invalidateQueries({ queryKey: operatorKeys.process });
       void queryClient.invalidateQueries({
         queryKey: operatorKeys.order(order._id),
       });
+    },
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: operatorKeys.stream });
     },
   });
 }
@@ -102,30 +127,11 @@ export function useUpdateOperatorOrder() {
 export function useCancelOperatorOrder() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      id,
-      cancelReason,
-    }: {
-      id: string;
-      cancelReason?: string;
-    }) => operatorApi.cancelOrder(id, cancelReason),
+    mutationFn: ({ id, cancelReason }: { id: string; cancelReason?: string }) =>
+      operatorApi.cancelOrder(id, cancelReason),
     onSuccess: (order) => {
       void queryClient.invalidateQueries({ queryKey: operatorKeys.process });
       void queryClient.invalidateQueries({ queryKey: operatorKeys.stream });
-      void queryClient.invalidateQueries({
-        queryKey: operatorKeys.order(order._id),
-      });
-    },
-  });
-}
-
-export function useCallbackLaterOperatorOrder() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
-      operatorApi.callbackLaterOrder(id, notes),
-    onSuccess: (order) => {
-      void queryClient.invalidateQueries({ queryKey: operatorKeys.process });
       void queryClient.invalidateQueries({
         queryKey: operatorKeys.order(order._id),
       });

@@ -6,10 +6,12 @@ import { useState, type ReactNode } from "react";
 import {
   ArrowLeft,
   Clock3,
+  CheckCircle2,
   MapPin,
   PackageCheck,
 } from "lucide-react";
 import { CustomerCallButton } from "@/src/components/CustomerCallButton";
+import { PageHeading } from "@/src/components/WorkspaceDesign";
 import { EmptyState, GlassPanel } from "@/src/components/ui";
 import { MarketerCommissionAudit } from "@/src/components/MarketerCommissionAudit";
 import { OrderCard } from "@/src/components/OrderCard";
@@ -19,7 +21,6 @@ import {
   type OrderFormValues,
 } from "@/src/components/OrderEditor";
 import {
-  useCallbackLaterOperatorOrder,
   useCancelOperatorOrder,
   useConfirmOperatorOrder,
   useOperatorOrder,
@@ -35,7 +36,6 @@ import type { OperatorOrder } from "@/src/types";
 
 const statusLabels: Record<OperatorOrder["status"], string> = {
   pending: "Tekshirilmoqda",
-  callback_later: "Keyinroq qo'ng'iroq",
   confirmed: "Tasdiqlangan",
   assigned: "Yetkazuvchiga berilgan",
   in_delivery: "Yetkazilmoqda",
@@ -47,7 +47,6 @@ const statusLabels: Record<OperatorOrder["status"], string> = {
 
 const statusClass: Record<OperatorOrder["status"], string> = {
   pending: "border-blue-200 bg-blue-50 text-blue-800",
-  callback_later: "border-amber-200 bg-amber-50 text-amber-800",
   confirmed: "border-cyan-200 bg-cyan-50 text-cyan-800",
   assigned: "border-sky-200 bg-sky-50 text-sky-800",
   in_delivery: "border-amber-200 bg-amber-50 text-amber-800",
@@ -57,15 +56,9 @@ const statusClass: Record<OperatorOrder["status"], string> = {
   cancelled: "border-rose-200 bg-rose-50 text-rose-700",
 };
 
-function InfoRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: ReactNode;
-}) {
+function InfoRow({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-3 border-b border-slate-100 py-2.5 last:border-0">
+    <div className="flex items-start justify-between gap-3 rounded-lg bg-slate-50/70 px-2.5 py-2 mb-1.5 last:mb-0">
       <span className="text-sm font-bold text-neutral-500">{label}</span>
       <span className="text-right text-sm font-semibold text-neutral-950">
         {value}
@@ -102,20 +95,15 @@ export default function OrderDetailsPage() {
   const updateOrder = useUpdateOperatorOrder();
   const confirmOrder = useConfirmOperatorOrder();
   const cancelOrder = useCancelOperatorOrder();
-  const callbackLaterOrder = useCallbackLaterOperatorOrder();
   const [confirmedPopupOpen, setConfirmedPopupOpen] = useState(false);
   const order = orderQuery.data ?? null;
   const error =
     orderQuery.error ??
     updateOrder.error ??
     confirmOrder.error ??
-    cancelOrder.error ??
-    callbackLaterOrder.error;
-  const canEdit =
-    order?.status === "pending" || order?.status === "callback_later";
-  const canConfirm =
-    order?.status === "pending" || order?.status === "callback_later";
-  const canCallbackLater = order?.status === "pending";
+    cancelOrder.error;
+  const canEdit = order?.status === "pending";
+  const canConfirm = order?.status === "pending";
 
   function saveOrder(id: string, values: OrderFormValues) {
     updateOrder.mutate({
@@ -145,10 +133,6 @@ export default function OrderDetailsPage() {
     cancelOrder.mutate({ id, cancelReason });
   }
 
-  function submitCallbackLater(id: string, notes?: string) {
-    callbackLaterOrder.mutate({ id, notes });
-  }
-
   if (orderQuery.isLoading) {
     return (
       <GlassPanel className="flex h-64 items-center justify-center">
@@ -169,6 +153,11 @@ export default function OrderDetailsPage() {
 
   return (
     <div className="space-y-3 pb-16 lg:pb-0">
+      <PageHeading
+        eyebrow="Buyurtma tafsilotlari"
+        title={order.orderNumber}
+        description="Mijoz, mahsulotlar va yetkazish ma'lumotlari."
+      />
       <GlassPanel className="p-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -180,15 +169,29 @@ export default function OrderDetailsPage() {
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <p className="text-base font-black text-slate-950">{order.orderNumber}</p>
-              <span className={`rounded-full border px-2 py-1 text-[10px] font-extrabold ${statusClass[order.status]}`}>{statusLabels[order.status]}</span>
+              <p className="text-base font-bold text-slate-950">
+                {order.orderNumber}
+              </p>
+              <span
+                className={`rounded-md px-2 py-1 text-[10px] font-semibold ${statusClass[order.status]}`}
+              >
+                {statusLabels[order.status]}
+              </span>
             </div>
-            <p className="mt-1 truncate text-xs font-semibold text-slate-500">{customerName(order)}</p>
+            <p className="mt-1 truncate text-xs font-semibold text-slate-500">
+              {customerName(order)}
+            </p>
             {order.customer.phoneNumber && (
-              <CustomerCallButton phoneNumber={order.customer.phoneNumber} compact className="mt-2 hidden lg:inline-flex" />
+              <CustomerCallButton
+                phoneNumber={order.customer.phoneNumber}
+                compact
+                className="mt-2 hidden lg:inline-flex"
+              />
             )}
           </div>
-          <p className="shrink-0 text-right text-sm font-black text-slate-950">{formatPrice(order.totalAmount)}</p>
+          <p className="shrink-0 text-right text-sm font-bold text-slate-950">
+            {formatPrice(order.totalAmount)}
+          </p>
         </div>
       </GlassPanel>
 
@@ -198,7 +201,25 @@ export default function OrderDetailsPage() {
         </div>
       )}
 
-      <section className="grid gap-3 xl:grid-cols-[1fr_420px]">
+      {updateOrder.isSuccess && (
+        <div
+          role="status"
+          className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2.5 text-xs text-emerald-700"
+        >
+          <CheckCircle2 size={16} />
+          O&apos;zgarishlar saqlandi.
+        </div>
+      )}
+      {confirmedPopupOpen && !canEdit && (
+        <div
+          role="status"
+          className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2.5 text-xs text-emerald-700"
+        >
+          <CheckCircle2 size={16} />
+          Buyurtma muvaffaqiyatli tasdiqlandi.
+        </div>
+      )}
+      <section className="grid items-start gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
         <div className="space-y-3">
           <OrderCard
             order={order}
@@ -224,7 +245,9 @@ export default function OrderDetailsPage() {
                 />
                 <InfoRow
                   label="Manzil"
-                  value={order.delivery?.address ?? order.deliveryAddress ?? "-"}
+                  value={
+                    order.delivery?.address ?? order.deliveryAddress ?? "-"
+                  }
                 />
               </DetailPanel>
             </div>
@@ -243,15 +266,12 @@ export default function OrderDetailsPage() {
             onSave={saveOrder}
             onConfirm={submitConfirm}
             onCancel={submitCancel}
-            onCallbackLater={submitCallbackLater}
             canConfirm={canConfirm}
-            canCallbackLater={canCallbackLater}
             confirmedPopupOpen={confirmedPopupOpen}
             onCloseConfirmedPopup={() => setConfirmedPopupOpen(false)}
             saving={updateOrder.isPending}
             confirming={confirmOrder.isPending}
             cancelling={cancelOrder.isPending}
-            callbacking={callbackLaterOrder.isPending}
           />
         ) : (
           <GlassPanel className="p-4">

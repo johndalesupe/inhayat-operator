@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  deploymentId: process.env.RELEASE_ID || undefined,
   images: {
     unoptimized: true,
     remotePatterns: [

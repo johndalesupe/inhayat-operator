@@ -14,3 +14,11 @@ yarn-error.log*
 *.log
 .vscode
 .editorconfig
+
+**/node_modules
+.temp
+.tmp
+.github
+*.pem
+*.key
+coverage

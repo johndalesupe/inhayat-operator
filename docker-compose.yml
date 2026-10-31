@@ -1,49 +1,39 @@
+# Production image only. Use the central deploy.py for health-gated traffic switching.
 services:
-  inhayot-operator:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.inhayat.com/api/v1}
-        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://operator.inhayat.com}
-    container_name: inhayot-operator
+  app:
+    image: ${APP_IMAGE:?set an immutable registry image@sha256 digest}
+    init: true
     restart: unless-stopped
-    expose:
-      - "3000"
+    env_file:
+      - path: ${APP_ENV_FILE:-.env.production}
+        required: false
+        format: raw
     environment:
       NODE_ENV: production
       PORT: 3000
       HOSTNAME: 0.0.0.0
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.inhayat.com/api/v1}
-      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://operator.inhayat.com}
+      NODE_OPTIONS: "--max-old-space-size=${APP_HEAP_MB:-160}"
       INTERNAL_API_URL: ${INTERNAL_API_URL:-https://api.inhayat.com/api/v1}
+    expose:
+      - "3000"
     networks:
-      - cu24-network
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000 || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=cu24-network
-      # ── HTTP → HTTPS redirect ──
-      - traefik.http.routers.inhayot-operator-http.rule=Host(`operator.inhayat.com`)
-      - traefik.http.routers.inhayot-operator-http.entrypoints=web
-      - traefik.http.routers.inhayot-operator-http.middlewares=inhayot-operator-https-redirect
-      - traefik.http.middlewares.inhayot-operator-https-redirect.redirectscheme.scheme=https
-      - traefik.http.middlewares.inhayot-operator-https-redirect.redirectscheme.permanent=true
-      # ── HTTPS router ──
-      - traefik.http.routers.inhayot-operator.rule=Host(`operator.inhayat.com`)
-      - traefik.http.routers.inhayot-operator.entrypoints=websecure
-      - traefik.http.routers.inhayot-operator.tls=true
-      - traefik.http.routers.inhayot-operator.tls.certresolver=letsencrypt
-      - traefik.http.routers.inhayot-operator.tls.domains[0].main=operator.inhayat.com
-      - traefik.http.routers.inhayot-operator.service=inhayot-operator
-      - traefik.http.services.inhayot-operator.loadbalancer.server.port=3000
-
+      edge:
+        aliases:
+          - inhayat-operator-${DEPLOY_SLOT:-manual}
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: ${APP_MEMORY_LIMIT:-256m}
+    cpus: ${APP_CPU_LIMIT:-0.5}
+    stop_grace_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
 networks:
-  cu24-network:
+  edge:
     external: true
-    name: cu24-network
+    name: inhayat-edge

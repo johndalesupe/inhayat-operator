@@ -1,0 +1,133 @@
+name: Build and deploy immutable images
+'on':
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch: {}
+concurrency:
+  group: production-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: false
+permissions:
+  contents: read
+  packages: write
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Validate production Compose
+        env:
+          APP_IMAGE: ghcr.io/test/validation@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        run: docker compose config --quiet
+      - name: Validate Server Actions key
+        if: github.event_name != 'pull_request'
+        env:
+          ACTIONS_KEY: ${{ secrets.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY }}
+        run: |-
+          python3 - <<'PY'
+          import base64, os
+          key = base64.b64decode(os.environ['ACTIONS_KEY'], validate=True)
+          assert len(key) == 32, 'Configure a stable 32-byte Server Actions key'
+          PY
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        with:
+          buildkitd-config-inline: |-
+            [worker.oci]
+              max-parallelism = 2
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Image name
+        id: image
+        env:
+          APP_ID: operator
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        id: build
+        with:
+          context: .
+          file: Dockerfile
+          target: runner
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.image.outputs.name }}:${{ github.sha }}
+          labels: |-
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          build-args: |-
+            RELEASE_ID=${{ github.sha }}
+            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || 'https://api.inhayat.com/api/v1' }}
+            NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL || 'https://operator.inhayat.com' }}
+          secrets: |-
+            next_actions_key=${{ secrets.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY }}
+            sentry_auth_token=${{ secrets.SENTRY_AUTH_TOKEN }}
+          cache-from: type=gha,scope=operator
+          cache-to: type=gha,mode=max,scope=operator
+          provenance: mode=max
+          sbom: true
+      - name: Save immutable release reference
+        if: github.event_name != 'pull_request'
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+          APP_ID: operator
+        run: |-
+          mkdir -p release
+          printf '%s@%s\n' "$IMAGE" "$DIGEST" > "release/$APP_ID.txt"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: github.event_name != 'pull_request'
+        with:
+          name: digest-operator
+          path: release/*.txt
+          retention-days: 30
+  deploy:
+    runs-on: ubuntu-24.04
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.ENABLE_PRODUCTION_DEPLOY == 'true'
+    environment: production
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: digest-*
+          path: release
+          merge-multiple: true
+      - name: Configure pinned SSH host and restricted deployment key
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |-
+          set -euo pipefail
+          test -n "$DEPLOY_KEY" && test -n "$KNOWN_HOSTS"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+      - name: Deploy prebuilt images sequentially
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+          TRACKING_ENABLED: ${{ vars.ENABLE_SYSTEM_TRACKING_DEPLOY }}
+        run: |-
+          set -euo pipefail
+          [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
+          [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          [[ "$DEPLOY_PORT" =~ ^[0-9]{1,5}$ ]]
+          for app in operator; do
+            if [[ "$app" == system-tracking && "$TRACKING_ENABLED" != true ]]; then continue; fi
+            image=$(cat "release/$app.txt")
+            [[ "$image" =~ ^ghcr.io/[a-z0-9/._-]+@sha256:[a-f0-9]{64}$ ]]
+            ssh -T -p "$DEPLOY_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=12 "$DEPLOY_USER@$DEPLOY_HOST" "deploy $app $image"
+          done

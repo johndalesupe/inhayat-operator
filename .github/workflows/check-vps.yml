@@ -23,7 +23,7 @@ jobs:
           [[ "$DEPLOY_PORT" =~ ^[0-9]{1,5}$ ]]
           test -n "$DEPLOY_KEY" && test -n "$KNOWN_HOSTS"
           install -m 700 -d ~/.ssh
-          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
-          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf '%s\n' "$DEPLOY_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
           ssh -T -p "$DEPLOY_PORT" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$DEPLOY_USER@$DEPLOY_HOST" check

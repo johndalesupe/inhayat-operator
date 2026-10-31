@@ -54,7 +54,7 @@ export function OperatorShell({ children }: { children: ReactNode }) {
   const streamQuery = useStreamOrders();
   const processQuery = useProcessOrders();
   const activeOperator = operator ?? profileQuery.data ?? null;
-  const streamCount = streamQuery.data?.items.length ?? 0;
+  const streamCount = (streamQuery.data?.items.length ?? 0) + (streamQuery.data?.leads?.length ?? 0);
   const processCount = processQuery.data?.items.length ?? 0;
   const streamOpen = streamQuery.data?.settings.stream.isOpen ?? false;
   const realtimeNotice = useOperatorRealtime(token);

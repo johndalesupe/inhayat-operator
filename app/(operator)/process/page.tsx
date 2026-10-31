@@ -1,5 +1,6 @@
 "use client";
 
+import { LeadQueue } from "@/src/components/LeadQueue";
 import { useMemo, useState } from "react";
 import { Clock3, Loader2, PackageCheck, Search, Truck } from "lucide-react";
 import { MetricCard, PageHeading } from "@/src/components/WorkspaceDesign";
@@ -92,7 +93,7 @@ export default function ProcessPage() {
     <div className="space-y-3.5">
       <PageHeading
         eyebrow="Buyurtmalar boshqaruvi"
-        title="Mening buyurtmalarim"
+        title="Mening buyurtmalarim va leadlarim"
         description="Har bir buyurtmaning holati va keyingi qadami."
       />
       <div className="grid grid-cols-3 gap-2.5">
@@ -124,6 +125,7 @@ export default function ProcessPage() {
           className="h-10 w-full rounded-xl bg-white pl-9 pr-3 text-xs outline-none"
         />
       </div>
+      <LeadQueue leads={processQuery.data?.leads ?? []} owned search={search} />
       <div className="operator-scrollbar flex gap-1 overflow-x-auto rounded-xl bg-white p-1.5">
         {(
           ["all", ...Object.keys(statusLabels)] as Array<
@@ -172,7 +174,8 @@ export default function ProcessPage() {
       </div>
       {!processQuery.isLoading &&
         !processQuery.error &&
-        !filteredOrders.length && (
+        !filteredOrders.length &&
+        !processQuery.data?.leads?.length && (
           <EmptyState
             icon={<PackageCheck className="h-5 w-5" />}
             title={

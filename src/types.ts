@@ -91,7 +91,10 @@ export type DeliveryCityPrice = {
   privateDpCustomerVisible?: boolean;
   privateDpPrice?: number | null;
   deliveryOptions?: Array<{
-    type: Exclude<NonNullable<OperatorOrder["delivery"]>["type"], "taxi_delivery">;
+    type: Exclude<
+      NonNullable<OperatorOrder["delivery"]>["type"],
+      "taxi_delivery"
+    >;
     customerVisible: boolean;
     titleUz: string;
     titleRu: string;
@@ -283,9 +286,49 @@ export type OperatorSettings = {
 
 export type StreamResponse = {
   items: OperatorOrder[];
+  leads?: OperatorLead[];
   settings: OperatorSettings;
 };
 
 export type ProcessResponse = {
   items: OperatorOrder[];
+  leads?: OperatorLead[];
+};
+
+export type OperatorLead = {
+  _id: string;
+  streamNumericId: number;
+  productNumericId: number;
+  product: {
+    nameUz: string;
+    nameRu: string;
+    price: number;
+    discountPrice: number | null;
+    thumbnailUrl: string | null;
+  };
+  quantity: number;
+  source: string;
+  status: "received" | "call_back" | "confirmed" | "archived";
+  createdAt: string;
+  clientName?: string;
+  clientPhoneNumber?: string;
+  notes?: string | null;
+  delivery?: OrderDelivery | null;
+  orderId?: string | null;
+  orderNumber?: string | null;
+};
+
+export type UpdateOperatorLead = {
+  clientName?: string;
+  clientPhoneNumber?: string;
+  quantity?: number;
+  notes?: string;
+  status?: "received" | "call_back" | "archived";
+};
+
+export type ConvertOperatorLead = {
+  regionId: string;
+  cityId: string;
+  deliveryType: OrderDelivery["type"];
+  deliveryAddress?: string;
 };

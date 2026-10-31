@@ -57,6 +57,7 @@ export function useOperatorRealtime(token: string | null) {
     const refreshOperatorState = () => {
       void queryClient.invalidateQueries({ queryKey: operatorKeys.stream });
       void queryClient.invalidateQueries({ queryKey: operatorKeys.process });
+      void queryClient.invalidateQueries({ queryKey: ["operator", "leads"] });
       void queryClient.invalidateQueries({ queryKey: operatorKeys.wallet });
       void queryClient.invalidateQueries({
         queryKey: operatorKeys.withdrawals,
@@ -69,10 +70,13 @@ export function useOperatorRealtime(token: string | null) {
     socket.on("connect", refreshOperatorState);
 
     socket.on("operator:stream-updated", () => {
+      void queryClient.invalidateQueries({ queryKey: operatorKeys.process });
+      void queryClient.invalidateQueries({ queryKey: ["operator", "leads"] });
       void queryClient.invalidateQueries({ queryKey: operatorKeys.stream });
     });
     socket.on("operator:process-updated", () => {
       void queryClient.invalidateQueries({ queryKey: operatorKeys.process });
+      void queryClient.invalidateQueries({ queryKey: ["operator", "leads"] });
     });
     socket.on("operator:wallet-updated", (payload: WalletUpdatePayload) => {
       void queryClient.invalidateQueries({ queryKey: operatorKeys.wallet });

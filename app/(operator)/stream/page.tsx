@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { LeadQueue } from "@/src/components/LeadQueue";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -181,6 +182,8 @@ export default function StreamPage() {
   const [expandedPending, setExpandedPending] = useState(false);
   const stream = streamQuery.data;
   const items = stream?.items ?? [];
+  const leads = stream?.leads ?? [];
+  const ownedLeads = processQuery.data?.leads ?? [];
   const pendingOrders = (processQuery.data?.items ?? [])
     .filter((order) => order.status === "pending")
     .sort(
@@ -219,7 +222,7 @@ export default function StreamPage() {
     <div className="space-y-3.5">
       <PageHeading
         eyebrow="Jonli ish maydoni"
-        title="Buyurtmalar oqimi"
+        title="Buyurtmalar va leadlar oqimi"
         description="Qabul qiling. Mijoz bilan bog'laning. Tasdiqlang."
       />
       <section className="stream-banner">
@@ -241,13 +244,19 @@ export default function StreamPage() {
       <div className="grid grid-cols-3 gap-2.5">
         <MetricCard
           icon={Inbox}
-          label="Yangi buyurtmalar"
-          value={streamQuery.isLoading ? "—" : availableOrders.length}
+          label="Yangi buyurtma va leadlar"
+          value={
+            streamQuery.isLoading ? "—" : availableOrders.length + leads.length
+          }
         />
         <MetricCard
           icon={Clock3}
           label="Tasdiq kutilmoqda"
-          value={processQuery.isLoading ? "—" : pendingOrders.length}
+          value={
+            processQuery.isLoading
+              ? "—"
+              : pendingOrders.length + ownedLeads.length
+          }
           tone="amber"
         />
         <MetricCard
@@ -263,7 +272,7 @@ export default function StreamPage() {
       </div>
       <LiveStreamStatus
         settings={stream?.settings}
-        count={availableOrders.length}
+        count={availableOrders.length + leads.length}
         syncedAt={streamQuery.dataUpdatedAt}
         fetching={streamQuery.isFetching || processQuery.isFetching}
         onRefresh={() => {
@@ -272,7 +281,10 @@ export default function StreamPage() {
         }}
       />
       <div className="stream-layout">
-        <section className="min-w-0 space-y-3" aria-label="Yangi buyurtmalar">
+        <section
+          className="min-w-0 space-y-3"
+          aria-label="Yangi buyurtma va leadlar"
+        >
           <div className="flex items-center justify-between gap-2">
             <h2 className="section-title">
               Qabul qilish uchun{" "}
@@ -389,7 +401,8 @@ export default function StreamPage() {
               ))}
             </div>
           ) : (
-            !streamQuery.error && (
+            !streamQuery.error &&
+            !(filter === "all" && leads.length) && (
               <EmptyState
                 icon={
                   query || filter !== "all" ? (
@@ -426,6 +439,7 @@ export default function StreamPage() {
           className="pending-queue space-y-3"
           aria-label="Tasdiqlashni kutayotgan buyurtmalar"
         >
+          <LeadQueue leads={ownedLeads} owned />
           <GlassPanel className="overflow-hidden p-3.5">
             <div className="flex items-center gap-2">
               <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50 text-amber-600">

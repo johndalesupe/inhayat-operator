@@ -77,6 +77,7 @@ export function useAcceptOrder() {
       queryClient.setQueryData<ProcessResponse>(
         operatorKeys.process,
         (current) => ({
+          ...current,
           items: [
             order,
             ...(current?.items ?? []).filter((item) => item._id !== order._id),

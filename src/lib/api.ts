@@ -1,4 +1,7 @@
 import type {
+  OperatorLead,
+  UpdateOperatorLead,
+  ConvertOperatorLead,
   ApiResponse,
   CreateWithdrawalRequest,
   DeliveryCity,
@@ -55,9 +58,9 @@ async function request<T>(
     ...options,
     headers,
   });
-  const payload = (await response.json().catch(() => null)) as
-    | ApiResponse<T>
-    | null;
+  const payload = (await response
+    .json()
+    .catch(() => null)) as ApiResponse<T> | null;
 
   if (!response.ok || !payload?.success) {
     const message =
@@ -139,6 +142,20 @@ export const operatorApi = {
     }),
 
   stream: () => request<StreamResponse>("/operator/orders/stream"),
+
+  leadDetails: (id: string) => request<OperatorLead>(`/operator/leads/${id}`),
+  acceptLead: (id: string) =>
+    request<OperatorLead>(`/operator/leads/${id}/accept`, { method: "POST" }),
+  updateLead: (id: string, body: UpdateOperatorLead) =>
+    request<OperatorLead>(`/operator/leads/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  convertLead: (id: string, body: ConvertOperatorLead) =>
+    request<OperatorLead>(`/operator/leads/${id}/convert`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 
   processOrders: () => request<ProcessResponse>("/operator/orders/process"),
 

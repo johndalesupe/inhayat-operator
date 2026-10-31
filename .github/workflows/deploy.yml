@@ -129,5 +129,14 @@ jobs:
             if [[ "$app" == system-tracking && "$TRACKING_ENABLED" != true ]]; then continue; fi
             image=$(cat "release/$app.txt")
             [[ "$image" =~ ^ghcr.io/[a-z0-9/._-]+@sha256:[a-f0-9]{64}$ ]]
-            ssh -T -p "$DEPLOY_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=12 "$DEPLOY_USER@$DEPLOY_HOST" "deploy $app $image"
+            for attempt in 1 2 3; do
+              if ssh -T -p "$DEPLOY_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=12 "$DEPLOY_USER@$DEPLOY_HOST" "deploy $app $image"; then
+                break
+              else
+                ssh_status=$?
+              fi
+              if [[ "$ssh_status" -ne 255 || "$attempt" -eq 3 ]]; then exit "$ssh_status"; fi
+              echo "SSH interrupted; reconnecting to reconcile the deployment ($attempt/3)"
+              sleep 10
+            done
           done

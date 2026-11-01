@@ -24,11 +24,17 @@ export function CustomerCallButton({
   return (
     <a
       href={href}
+      target="_blank"
+      rel="noopener noreferrer"
       aria-label={`Mijozga qo'ng'iroq qilish: ${phoneNumber}`}
-      onClick={(event) => {
-        event.preventDefault();
-        haptic("light");
-        window.location.assign(href);
+      onClick={() => {
+        // Keep the trusted native link action. Telegram handles new-window
+        // phone links externally; navigating this WebView can swallow the call.
+        try {
+          haptic("light");
+        } catch {
+          // Optional Telegram feedback must never prevent opening the dialer.
+        }
       }}
       className={`call-button items-center justify-center gap-2 rounded-xl bg-emerald-600 font-extrabold text-white transition active:scale-[0.98] ${
         compact ? "h-10 px-3 text-xs" : "h-12 px-5 text-sm"

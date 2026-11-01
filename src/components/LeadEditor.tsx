@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { operatorApi } from "../lib/api";
+import { VariantSelector } from "./VariantSelector";
 import {
   Archive,
   CheckCircle2,
@@ -47,6 +50,30 @@ export function LeadEditor({ lead }: { lead: OperatorLead }) {
   const [saved, setSaved] = useState(false);
   const busy = update.isPending || convert.isPending;
   const editable = !lead.orderId && lead.status !== "archived";
+  const catalog = useQuery({
+    queryKey: ["operator-catalog", lead.productNumericId],
+    queryFn: () => operatorApi.catalogProduct(lead.productNumericId),
+    enabled: editable,
+    staleTime: 0,
+  });
+  const [variantKey, setVariantKey] = useState("");
+  const product = catalog.data;
+  const selectedKey =
+    variantKey ||
+    (product?.variants.length === 1 ? product.variants[0].key : "");
+  const variant = product?.variants.find((item) => item.key === selectedKey);
+  const available = variant ?? product;
+  const canConfirm =
+    !!product &&
+    (!product.variants.length || !!variant) &&
+    quantity > 0 &&
+    quantity <= (available?.stock ?? 0);
+  const price =
+    available &&
+    available.discountPrice != null &&
+    available.discountPrice < available.price
+      ? available.discountPrice
+      : available?.price;
   const save = async (status?: UpdateOperatorLead["status"]) => {
     setSaved(false);
     await update.mutateAsync({
@@ -79,7 +106,7 @@ export function LeadEditor({ lead }: { lead: OperatorLead }) {
       });
   };
   const confirm = async () => {
-    if (submission.current || !delivery.deliveryType) return;
+    if (submission.current || !delivery.deliveryType || !canConfirm) return;
     submission.current = true;
     try {
       await save();
@@ -90,6 +117,7 @@ export function LeadEditor({ lead }: { lead: OperatorLead }) {
           cityId: delivery.cityId,
           deliveryType: delivery.deliveryType,
           deliveryAddress: delivery.address.trim(),
+          ...(selectedKey ? { variantKey: selectedKey } : {}),
         },
       });
       setConfirming(false);
@@ -121,14 +149,22 @@ export function LeadEditor({ lead }: { lead: OperatorLead }) {
         <span className="work-kind">Lead · Oqim #{lead.streamNumericId}</span>
         <div className="form-order-product">
           <ProductPortrait
-            src={lead.product.thumbnailUrl}
+            src={available?.thumbnailUrl ?? lead.product.thumbnailUrl}
+            fallbacks={[
+              ...(variant?.images ?? []),
+              product?.thumbnailUrl,
+              ...(product?.images ?? []),
+              lead.product.thumbnailUrl,
+            ]}
             name={lead.product.nameUz}
             tone="lead"
           />
           <div className="min-w-0">
             <h2>{lead.product.nameUz}</h2>
             <strong>
-              {formatPrice(lead.product.discountPrice ?? lead.product.price)}{" "}
+              {formatPrice(
+                price ?? lead.product.discountPrice ?? lead.product.price,
+              )}{" "}
               <span>/ dona</span>
             </strong>
             <p className="form-hint">
@@ -142,7 +178,7 @@ export function LeadEditor({ lead }: { lead: OperatorLead }) {
         className="editing-stack"
         onSubmit={(event) => {
           event.preventDefault();
-          setConfirming(true);
+          if (canConfirm) setConfirming(true);
         }}
       >
         <fieldset disabled={busy} className="editing-columns">
@@ -169,7 +205,11 @@ export function LeadEditor({ lead }: { lead: OperatorLead }) {
                 </FormField>
                 <div className="form-field">
                   <span>Miqdor</span>
-                  <QuantityControl value={quantity} onChange={setQuantity} />
+                  <QuantityControl
+                    value={quantity}
+                    onChange={setQuantity}
+                    max={available?.stock}
+                  />
                 </div>
               </div>
               <FormField label="Izoh" icon={FileText}>
@@ -223,6 +263,33 @@ export function LeadEditor({ lead }: { lead: OperatorLead }) {
             </FormPanel>
           </fieldset>
           <div className="editing-stack">
+            {catalog.isPending && (
+              <p className="form-notice">Mahsulot variantlari yuklanmoqda...</p>
+            )}
+            {catalog.isError && (
+              <div className="form-error" role="alert">
+                {errorText(catalog.error, "Mahsulotni yuklab bo‘lmadi")}
+                <button
+                  type="button"
+                  className="form-button"
+                  onClick={() => void catalog.refetch()}
+                >
+                  Qayta yuklash
+                </button>
+              </div>
+            )}
+            {product && (
+              <VariantSelector
+                product={product}
+                value={selectedKey}
+                onChange={setVariantKey}
+              />
+            )}
+            {product && !canConfirm && (
+              <p className="form-notice">
+                Variantni tanlang va ombordagi miqdorni tekshiring.
+              </p>
+            )}
             <DeliveryFields value={delivery} onChange={setDelivery} />
             {!deliveryComplete(delivery) && (
               <p className="form-notice">
@@ -233,7 +300,7 @@ export function LeadEditor({ lead }: { lead: OperatorLead }) {
             <button
               type="submit"
               className="form-button form-button--primary"
-              disabled={!deliveryComplete(delivery)}
+              disabled={!deliveryComplete(delivery) || !canConfirm}
             >
               <CheckCircle2 size={19} />
               Buyurtmani tasdiqlash
@@ -264,6 +331,13 @@ export function LeadEditor({ lead }: { lead: OperatorLead }) {
             {name} · {phone}
             <br />
             {lead.product.nameUz} × {quantity}
+            {variant && (
+              <>
+                {" "}
+                · {variant.name}{" "}
+                {Object.values(variant.attributes ?? {}).join(" / ")}
+              </>
+            )}
             <br />
             {delivery.address}
           </p>
@@ -275,7 +349,7 @@ export function LeadEditor({ lead }: { lead: OperatorLead }) {
           <button
             type="button"
             className="form-button form-button--primary"
-            disabled={busy}
+            disabled={busy || !canConfirm}
             onClick={() => void confirm()}
           >
             {busy ? "Saqlanmoqda..." : "Ha, tasdiqlash"}

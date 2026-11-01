@@ -1,5 +1,21 @@
 @import "tailwindcss";
 
+.variant-picker { min-width: 0; margin: 0; padding: 0; border: 0; }
+.variant-picker legend { margin-bottom: 8px; font-size: 13px; font-weight: 650; }
+.variant-picker-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 8px; }
+.variant-option { position: relative; display: flex; align-items: center; gap: 9px; min-width: 0; padding: 9px; border: 1px solid #e2e0ef; border-radius: 12px; background: #fff; cursor: pointer; }
+.variant-option[data-selected="true"] { border-color: #7454ee; background: #f5f2ff; box-shadow: inset 0 0 0 1px #7454ee; }
+.variant-option[data-unavailable="true"] { opacity: .5; cursor: not-allowed; }
+.variant-option:focus-within { outline: 2px solid #7454ee; outline-offset: 2px; }
+.variant-option input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; z-index: 1; cursor: inherit; }
+.variant-option .product-portrait { width: 58px; height: 70px; flex: 0 0 58px; border-radius: 8px; }
+.variant-option-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 2px; font-size: 12px; overflow-wrap: anywhere; }
+.variant-option-copy strong { font-size: 13px; }
+.variant-option-copy small, .variant-option-copy > span { color: #6d6987; font-size: 11px; }
+.variant-option-check { display: grid; place-items: center; flex: 0 0 18px; height: 18px; border: 1px solid #d7d2e9; border-radius: 50%; }
+.variant-option[data-selected="true"] .variant-option-check { color: white; background: #7454ee; border-color: #7454ee; }
+.product-options:has(.variant-picker) { display: flex; flex-direction: column; align-items: stretch; }
+
 /* The working queue uses product imagery and order progress as its graphics. */
 @layer components {
   .queue-page {

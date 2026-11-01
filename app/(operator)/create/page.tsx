@@ -12,7 +12,6 @@ import {
   Phone,
   Plus,
   Search,
-  Tag,
   Trash2,
   UserRound,
 } from "lucide-react";
@@ -22,6 +21,7 @@ import {
   FormPanel,
   QuantityControl,
 } from "@/src/components/OrderFormParts";
+import { VariantSelector } from "@/src/components/VariantSelector";
 import { ProductPortrait } from "@/src/components/OrderVisuals";
 import { useCreateOperatorOrder } from "@/src/hooks/useOperatorOrders";
 import { operatorApi } from "@/src/lib/api";
@@ -268,6 +268,11 @@ export default function CreateOrderPage() {
                     <div className="form-product-preview">
                       <ProductPortrait
                         src={selected.image}
+                        fallbacks={[
+                          ...(selected.variant?.images ?? []),
+                          line.product.thumbnailUrl,
+                          ...(line.product.images ?? []),
+                        ]}
                         name={line.product.name}
                         quantity={line.quantity}
                       />
@@ -295,29 +300,13 @@ export default function CreateOrderPage() {
                     </div>
                     <div className="product-options">
                       {line.product.variants.length > 0 && (
-                        <FormField label="Variant" icon={Tag}>
-                          <select
-                            required
-                            value={line.variantKey}
-                            onChange={(event) =>
-                              changeLine(line.key, {
-                                variantKey: event.target.value,
-                                quantity: 1,
-                              })
-                            }
-                          >
-                            <option value="">Tanlang</option>
-                            {line.product.variants.map((variant) => (
-                              <option
-                                key={variant.key}
-                                value={variant.key}
-                                disabled={!variant.stock}
-                              >
-                                {variant.name} · {variant.stock} dona
-                              </option>
-                            ))}
-                          </select>
-                        </FormField>
+                        <VariantSelector
+                          product={line.product}
+                          value={line.variantKey}
+                          onChange={(variantKey) =>
+                            changeLine(line.key, { variantKey, quantity: 1 })
+                          }
+                        />
                       )}
                       <div className="quantity-field">
                         <span>Miqdor</span>

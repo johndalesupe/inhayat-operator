@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cleanup,
   fireEvent,
-  render,
+  render as renderUI,
   screen,
   waitFor,
 } from "@testing-library/react";
@@ -10,6 +10,17 @@ import CreateOrderPage from "../app/(operator)/create/page";
 import { CancelOrderButton, OrderEditor } from "../src/components/OrderEditor";
 import { LeadEditor } from "../src/components/LeadEditor";
 import type { OperatorLead, OperatorOrder } from "../src/types";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactNode } from "react";
+
+function render(ui: ReactNode) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  });
+  return renderUI(
+    <QueryClientProvider client={client}>{ui}</QueryClientProvider>,
+  );
+}
 
 const mocks = vi.hoisted(() => ({
   create: vi.fn(),
@@ -171,9 +182,7 @@ describe("operator order workspace", () => {
         .closest("form")!,
     );
     expect(mocks.create).not.toHaveBeenCalled();
-    fireEvent.change(screen.getByLabelText("Variant"), {
-      target: { value: "50ml" },
-    });
+    fireEvent.click(screen.getByRole("radio", { name: /50 ml/ }));
     fireEvent.click(
       screen.getByRole("button", { name: "Yaratish va tasdiqlash" }),
     );
@@ -253,5 +262,71 @@ describe("operator order workspace", () => {
     await waitFor(() => expect(mocks.leadUpdate).toHaveBeenCalled());
     expect(mocks.leadUpdate.mock.calls[0][0].body.status).toBe("call_back");
     expect(mocks.convert).not.toHaveBeenCalled();
+  });
+  it("requires a sellable variant before converting and sends only its key", async () => {
+    mocks.catalog.mockResolvedValue({
+      ...product,
+      variants: [
+        {
+          key: "50",
+          name: "50 ml",
+          stock: 4,
+          price: 100000,
+          thumbnailUrl: "/50.jpg",
+        },
+        {
+          key: "100",
+          name: "100 ml",
+          stock: 0,
+          price: 200000,
+          thumbnailUrl: "/100.jpg",
+        },
+      ],
+    });
+    render(
+      <LeadEditor
+        lead={
+          {
+            _id: "lead",
+            streamNumericId: 7,
+            productNumericId: 1042,
+            product: { nameUz: "Atir", price: 210000 },
+            quantity: 2,
+            clientName: "Test",
+            clientPhoneNumber: "+998901234567",
+            status: "received",
+            delivery: { regionId: "region", cityId: "city", type: "normal" },
+          } as OperatorLead
+        }
+      />,
+    );
+    const radio = await screen.findByRole("radio", { name: /50 ml/ });
+    expect(
+      (screen.getByRole("radio", { name: /100 ml/ }) as HTMLInputElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Buyurtmani tasdiqlash",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    fireEvent.click(radio);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Buyurtmani tasdiqlash" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Ha, tasdiqlash" }));
+    await waitFor(() => expect(mocks.convert).toHaveBeenCalled());
+    expect(mocks.convert.mock.calls[0][0].body).toEqual({
+      regionId: "region",
+      cityId: "city",
+      deliveryType: "normal",
+      deliveryAddress: "",
+      variantKey: "50",
+    });
+    expect(mocks.leadUpdate.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.convert.mock.invocationCallOrder[0],
+    );
   });
 });

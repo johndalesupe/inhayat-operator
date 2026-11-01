@@ -53,6 +53,7 @@ export type OrderItem = {
 };
 
 export type OperatorCatalogProduct = {
+  images?: string[];
   numericId: number;
   name: string;
   thumbnailUrl: string | null;
@@ -60,6 +61,8 @@ export type OperatorCatalogProduct = {
   discountPrice: number | null;
   stock: number;
   variants: Array<{
+    images?: string[];
+    attributes?: Record<string, string>;
     key: string;
     name: string;
     stock: number;
@@ -367,6 +370,7 @@ export type UpdateOperatorLead = {
 };
 
 export type ConvertOperatorLead = {
+  variantKey?: string;
   regionId: string;
   cityId: string;
   deliveryType: OrderDelivery["type"];

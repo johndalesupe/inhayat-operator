@@ -2,8 +2,7 @@
 
 import { LeadQueue } from "@/src/components/LeadQueue";
 import { useMemo, useState } from "react";
-import { Clock3, Loader2, PackageCheck, Search, Truck } from "lucide-react";
-import { MetricCard, PageHeading } from "@/src/components/WorkspaceDesign";
+import { Loader2, PackageCheck, Search } from "lucide-react";
 import { EmptyState, GlassPanel } from "@/src/components/ui";
 import { OrderCard } from "@/src/components/OrderCard";
 import { errorText } from "@/src/lib/format";
@@ -35,7 +34,26 @@ const statusClass: Record<OperatorOrder["status"], string> = {
 export default function ProcessPage() {
   const processQuery = useProcessOrders();
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<OperatorOrder["status"] | "all">("all");
+  const [status, setStatus] = useState<
+    OperatorOrder["status"] | "all" | "leads"
+  >("all");
+  const leads = processQuery.data?.leads ?? [];
+  const visibleLeads =
+    status === "all" || status === "leads"
+      ? leads.filter((lead) =>
+          [
+            lead.product.nameUz,
+            lead.product.nameRu,
+            lead.streamNumericId,
+            lead.clientName,
+            lead.clientPhoneNumber,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLocaleLowerCase()
+            .includes(search.trim().toLocaleLowerCase()),
+        )
+      : [];
   const orders = useMemo(
     () => processQuery.data?.items ?? [],
     [processQuery.data?.items],
@@ -59,9 +77,11 @@ export default function ProcessPage() {
   }, [orders]);
   const filteredOrders = useMemo(() => {
     const base =
-      status === "all"
-        ? orders
-        : orders.filter((order) => order.status === status);
+      status === "leads"
+        ? []
+        : status === "all"
+          ? orders
+          : orders.filter((order) => order.status === status);
     const query = search.trim().toLocaleLowerCase();
     return base
       .filter(
@@ -90,30 +110,26 @@ export default function ProcessPage() {
   }, [orders, status, search]);
 
   return (
-    <div className="space-y-3.5">
-      <PageHeading
-        eyebrow="Buyurtmalar boshqaruvi"
-        title="Mening buyurtmalarim va leadlarim"
-        description="Har bir buyurtmaning holati va keyingi qadami."
-      />
-      <div className="grid grid-cols-3 gap-2.5">
-        <MetricCard
-          icon={Clock3}
-          label="Kutilmoqda"
-          value={counts.pending}
-          tone="amber"
-        />
-        <MetricCard
-          icon={Truck}
-          label="Yetkazish jarayonida"
-          value={counts.confirmed + counts.assigned + counts.in_delivery}
-        />
-        <MetricCard
-          icon={PackageCheck}
-          label="Yetkazilgan"
-          value={counts.delivered}
-          tone="mint"
-        />
+    <div className="queue-page">
+      <header className="queue-heading">
+        <div>
+          <h1>Mening buyurtmalarim</h1>
+          <p>Qabul qilingan leadlar va buyurtmalarning keyingi qadami.</p>
+        </div>
+      </header>
+      <div className="process-summary">
+        <span>
+          Kutilmoqda<strong>{counts.pending + leads.length}</strong>
+        </span>
+        <span>
+          Yetkazish jarayonida
+          <strong>
+            {counts.confirmed + counts.assigned + counts.in_delivery}
+          </strong>
+        </span>
+        <span>
+          Yetkazilgan<strong>{counts.delivered}</strong>
+        </span>
       </div>
       <div className="relative">
         <Search size={16} className="absolute left-3 top-3 text-slate-400" />
@@ -125,11 +141,10 @@ export default function ProcessPage() {
           className="h-10 w-full rounded-xl bg-white pl-9 pr-3 text-xs outline-none"
         />
       </div>
-      <LeadQueue leads={processQuery.data?.leads ?? []} owned search={search} />
-      <div className="operator-scrollbar flex gap-1 overflow-x-auto rounded-xl bg-white p-1.5">
+      <div className="queue-tabs" role="group" aria-label="Buyurtmalar holati">
         {(
-          ["all", ...Object.keys(statusLabels)] as Array<
-            OperatorOrder["status"] | "all"
+          ["all", "leads", ...Object.keys(statusLabels)] as Array<
+            OperatorOrder["status"] | "all" | "leads"
           >
         ).map((item) => (
           <button
@@ -137,12 +152,24 @@ export default function ProcessPage() {
             type="button"
             onClick={() => setStatus(item)}
             aria-pressed={status === item}
-            className="filter-chip shrink-0"
+            className="shrink-0"
           >
-            {item === "all" ? "Barchasi" : statusLabels[item]} ({counts[item]})
+            {item === "all"
+              ? "Barchasi"
+              : item === "leads"
+                ? "Leadlar"
+                : statusLabels[item]}
+            <span>
+              {item === "all"
+                ? counts.all + leads.length
+                : item === "leads"
+                  ? leads.length
+                  : counts[item]}
+            </span>
           </button>
         ))}
       </div>
+      <LeadQueue leads={visibleLeads} owned />
 
       {processQuery.error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
@@ -159,12 +186,12 @@ export default function ProcessPage() {
           />
         </GlassPanel>
       )}
-      <div className="grid gap-2.5 xl:grid-cols-2">
+      <div className="work-grid">
         {filteredOrders.map((order) => (
           <OrderCard
             key={order._id}
             order={order}
-            showDelivery={false}
+            showDelivery
             showItems={false}
             detailHref={`/process/${order._id}`}
             statusLabel={statusLabels[order.status]}
@@ -175,7 +202,7 @@ export default function ProcessPage() {
       {!processQuery.isLoading &&
         !processQuery.error &&
         !filteredOrders.length &&
-        !processQuery.data?.leads?.length && (
+        !visibleLeads.length && (
           <EmptyState
             icon={<PackageCheck className="h-5 w-5" />}
             title={

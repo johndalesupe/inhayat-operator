@@ -16,6 +16,7 @@ ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_SITE_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+RUN npm test
 # The stable Server Actions key is a BuildKit secret, never a build argument.
 RUN --mount=type=secret,id=next_actions_key \
     --mount=type=secret,id=sentry_auth_token \

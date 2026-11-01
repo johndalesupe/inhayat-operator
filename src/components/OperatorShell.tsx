@@ -26,6 +26,7 @@ import { clearSession, hydrateAuth, setOperator } from "../store/authSlice";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { useTelegram } from "../telegram/TelegramProvider";
 import { Brand } from "./WorkspaceDesign";
+import { allowedStreamItems } from "../lib/streamQueue";
 
 const navItems = [
   { href: "/stream", label: "Oqim", icon: Radio },
@@ -54,9 +55,8 @@ export function OperatorShell({ children }: { children: ReactNode }) {
   const streamQuery = useStreamOrders();
   const processQuery = useProcessOrders();
   const activeOperator = operator ?? profileQuery.data ?? null;
-  const streamCount =
-    (streamQuery.data?.items.length ?? 0) +
-    (streamQuery.data?.leads?.length ?? 0);
+  const allowedStream = allowedStreamItems(streamQuery.data);
+  const streamCount = allowedStream.orders.length + allowedStream.leads.length;
   const processCount =
     (processQuery.data?.items.length ?? 0) +
     (processQuery.data?.leads?.length ?? 0);

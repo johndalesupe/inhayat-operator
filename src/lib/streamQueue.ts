@@ -1,6 +1,41 @@
-import type { OperatorLead, OperatorOrder } from "../types";
+import type {
+  OperatorLead,
+  OperatorOrder,
+  OperatorStreamPermission,
+  StreamResponse,
+} from "../types";
 
-export type StreamFilter = "all" | "leads" | "orders" | "express";
+export const allStreamPermissions: OperatorStreamPermission[] = [
+  "leads",
+  "pending_orders",
+  "quick_form_orders",
+];
+export const orderStreamType = (
+  order: OperatorOrder,
+): OperatorStreamPermission =>
+  order.source === "lead_stream" ? "quick_form_orders" : "pending_orders";
+export const leadStreamType = (lead: OperatorLead): OperatorStreamPermission =>
+  lead.source === "web_form" ? "quick_form_orders" : "leads";
+
+export function allowedStreamItems(stream?: StreamResponse) {
+  const permissions = stream?.streamPermissions ?? allStreamPermissions;
+  return {
+    permissions,
+    orders: (stream?.items ?? []).filter((order) =>
+      permissions.includes(orderStreamType(order)),
+    ),
+    leads: (stream?.leads ?? []).filter((lead) =>
+      permissions.includes(leadStreamType(lead)),
+    ),
+  };
+}
+
+export type StreamFilter =
+  | "all"
+  | "leads"
+  | "orders"
+  | "quick_form"
+  | "express";
 export type StreamEntry =
   | { kind: "lead"; item: OperatorLead }
   | { kind: "order"; item: OperatorOrder };
@@ -19,8 +54,14 @@ export function streamQueue(
   ];
   return entries
     .filter((entry) => {
-      if (filter === "leads" && entry.kind !== "lead") return false;
-      if (filter === "orders" && entry.kind !== "order") return false;
+      const category =
+        entry.kind === "lead"
+          ? leadStreamType(entry.item)
+          : orderStreamType(entry.item);
+      if (filter === "leads" && category !== "leads") return false;
+      if (filter === "orders" && category !== "pending_orders") return false;
+      if (filter === "quick_form" && category !== "quick_form_orders")
+        return false;
       if (
         filter === "express" &&
         (entry.kind !== "order" || entry.item.delivery?.type !== "express")

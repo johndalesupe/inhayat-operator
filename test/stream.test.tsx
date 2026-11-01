@@ -104,6 +104,70 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("operator lead rendering regression", () => {
+  it("limits quick-form access to both form leads and form orders", () => {
+    const data = response(
+      [
+        order,
+        {
+          ...order,
+          _id: "quick-order",
+          source: "lead_stream",
+          orderNumber: "QUICK-1",
+        },
+      ],
+      [
+        lead,
+        { ...lead, _id: "quick-lead", source: "web_form", streamNumericId: 43 },
+      ],
+    );
+    mocks.stream.mockReturnValue({
+      ...data,
+      data: { ...data.data, streamPermissions: ["quick_form_orders"] },
+    });
+    render(<StreamPage />);
+    expect(screen.getAllByRole("article")).toHaveLength(2);
+    expect(
+      screen.queryByRole("article", { name: "Buyurtma IN-100" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("article", { name: "Lead #42: Atirgul kremi" }),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Leadlar/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Kutilayotgan/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /^Tezkor forma/ }));
+    expect(screen.getAllByRole("article")).toHaveLength(2);
+  });
+  it("removes a revoked category and resets its selected filter without a reload", () => {
+    const data = response([order]);
+    mocks.stream.mockReturnValue(data);
+    const view = render(<StreamPage />);
+    fireEvent.click(screen.getByRole("button", { name: /^Leadlar/ }));
+    mocks.stream.mockReturnValue({
+      ...data,
+      data: { ...data.data, streamPermissions: ["pending_orders"] },
+    });
+    view.rerender(<StreamPage />);
+    expect(screen.queryByText("Atirgul kremi")).toBeNull();
+    expect(screen.getByText("Yuz yuvish geli")).toBeTruthy();
+    expect(
+      screen
+        .getByRole("button", { name: /^Barchasi/ })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+  });
+  it("explains zero permissions while preserving the link to accepted work", () => {
+    const data = response([order]);
+    mocks.stream.mockReturnValue({
+      ...data,
+      data: { ...data.data, streamPermissions: [] },
+    });
+    render(<StreamPage />);
+    expect(screen.queryByRole("article")).toBeNull();
+    expect(screen.getByText("Oqim turlari ruxsat etilmagan")).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: /Ish jarayonida/ }).getAttribute("href"),
+    ).toBe("/process");
+  });
   it("renders an available lead even when there are no orders", () => {
     render(<StreamPage />);
     expect(
@@ -121,7 +185,7 @@ describe("operator lead rendering regression", () => {
     fireEvent.click(screen.getByRole("button", { name: /Leadlar/ }));
     expect(screen.getAllByRole("article")).toHaveLength(1);
     expect(screen.getByText("Atirgul kremi")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /Buyurtmalar/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Kutilayotgan/ }));
     expect(screen.queryByText("Atirgul kremi")).toBeNull();
     expect(screen.getByText("Yuz yuvish geli")).toBeTruthy();
   });

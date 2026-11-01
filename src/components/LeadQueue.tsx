@@ -37,7 +37,7 @@ export function LeadCard({
       <header className="work-card-header">
         <span className="work-kind work-kind--lead">
           <PhoneIncoming size={13} />
-          Lead
+          {lead.source === "web_form" ? "Tezkor forma" : "Lead"}
         </span>
         <span className="work-reference">#{lead.streamNumericId}</span>
         <time dateTime={lead.createdAt} className="work-time">

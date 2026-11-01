@@ -18,7 +18,13 @@ export type PaginatedData<T> = {
   meta: PaginationMeta;
 };
 
+export type OperatorStreamPermission =
+  | "leads"
+  | "pending_orders"
+  | "quick_form_orders";
+
 export type OperatorProfile = {
+  streamPermissions?: OperatorStreamPermission[];
   _id: string;
   fullName: string;
   phoneNumber: string;
@@ -146,6 +152,7 @@ export type MarketerCommissionLog = {
 };
 
 export type OperatorOrder = {
+  source?: string;
   _id: string;
   orderNumber: string;
   customer: {
@@ -285,6 +292,7 @@ export type OperatorSettings = {
 };
 
 export type StreamResponse = {
+  streamPermissions?: OperatorStreamPermission[];
   items: OperatorOrder[];
   leads?: OperatorLead[];
   settings: OperatorSettings;

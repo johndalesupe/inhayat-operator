@@ -9,6 +9,7 @@ import { operatorKeys } from "../lib/queryKeys";
 import { clearSession } from "../store/authSlice";
 import { useAppDispatch } from "../store/hooks";
 import { useTelegram } from "../telegram/TelegramProvider";
+import type { OperatorStreamPermission, StreamResponse } from "../types";
 
 export type OperatorRealtimeNotice = {
   id: number;
@@ -69,11 +70,37 @@ export function useOperatorRealtime(token: string | null) {
 
     socket.on("connect", refreshOperatorState);
 
-    socket.on("operator:stream-updated", () => {
-      void queryClient.invalidateQueries({ queryKey: operatorKeys.process });
-      void queryClient.invalidateQueries({ queryKey: ["operator", "leads"] });
-      void queryClient.invalidateQueries({ queryKey: operatorKeys.stream });
-    });
+    socket.on(
+      "operator:stream-updated",
+      (payload?: {
+        action?: string;
+        streamPermissions?: OperatorStreamPermission[];
+      }) => {
+        if (
+          payload?.action === "permissions_changed" &&
+          Array.isArray(payload.streamPermissions)
+        ) {
+          queryClient.setQueryData<StreamResponse>(
+            operatorKeys.stream,
+            (current) =>
+              current
+                ? {
+                    ...current,
+                    streamPermissions: payload.streamPermissions,
+                    items: [],
+                    leads: [],
+                  }
+                : current,
+          );
+          void queryClient.invalidateQueries({
+            queryKey: operatorKeys.profile,
+          });
+        }
+        void queryClient.invalidateQueries({ queryKey: operatorKeys.process });
+        void queryClient.invalidateQueries({ queryKey: ["operator", "leads"] });
+        void queryClient.invalidateQueries({ queryKey: operatorKeys.stream });
+      },
+    );
     socket.on("operator:process-updated", () => {
       void queryClient.invalidateQueries({ queryKey: operatorKeys.process });
       void queryClient.invalidateQueries({ queryKey: ["operator", "leads"] });

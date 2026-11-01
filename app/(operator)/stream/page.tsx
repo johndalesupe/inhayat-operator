@@ -31,7 +31,13 @@ import {
   formatPrice,
   orderAge,
 } from "@/src/lib/format";
-import { streamQueue, type StreamFilter } from "@/src/lib/streamQueue";
+import {
+  allowedStreamItems,
+  leadStreamType,
+  orderStreamType,
+  streamQueue,
+  type StreamFilter,
+} from "@/src/lib/streamQueue";
 import type { OperatorOrder } from "@/src/types";
 
 function StreamOrderCard({
@@ -52,7 +58,11 @@ function StreamOrderCard({
       <header className="work-card-header">
         <span className={`work-kind ${express ? "work-kind--express" : ""}`}>
           {express ? <Zap size={13} /> : <Package size={13} />}
-          {express ? "Tezkor" : "Buyurtma"}
+          {orderStreamType(order) === "quick_form_orders"
+            ? "Tezkor forma"
+            : express
+              ? "Tezkor yetkazish"
+              : "Buyurtma"}
         </span>
         <span className="work-reference">{order.orderNumber}</span>
         <span className="work-time">{orderAge(order)}</span>
@@ -114,34 +124,51 @@ export default function StreamPage() {
   const [filter, setFilter] = useState<StreamFilter>("all");
   const [newest, setNewest] = useState(false);
   const stream = streamQuery.data;
+  const allowed = allowedStreamItems(stream);
   const ownedLeads = processQuery.data?.leads ?? [];
   const pending = (processQuery.data?.items ?? []).filter(
     (order) => order.status === "pending",
   );
   const ownedIds = new Set(pending.map((order) => order._id));
   const ownedLeadIds = new Set(ownedLeads.map((lead) => lead._id));
-  const orders = (stream?.items ?? []).filter(
-    (order) => !ownedIds.has(order._id),
-  );
-  const leads = (stream?.leads ?? []).filter(
-    (lead) => !ownedLeadIds.has(lead._id),
-  );
-  const visible = streamQueue(orders, leads, filter, search, newest);
+  const orders = allowed.orders.filter((order) => !ownedIds.has(order._id));
+  const leads = allowed.leads.filter((lead) => !ownedLeadIds.has(lead._id));
   const isOpen = Boolean(stream?.settings.stream.isOpen);
   const busy = acceptOrder.isPending || acceptLead.isPending;
   const counts = {
     all: orders.length + leads.length,
-    leads: leads.length,
-    orders: orders.length,
+    leads: leads.filter((lead) => leadStreamType(lead) === "leads").length,
+    orders: orders.filter(
+      (order) => orderStreamType(order) === "pending_orders",
+    ).length,
+    quick_form:
+      leads.filter((lead) => leadStreamType(lead) === "quick_form_orders")
+        .length +
+      orders.filter((order) => orderStreamType(order) === "quick_form_orders")
+        .length,
     express: orders.filter((order) => order.delivery?.type === "express")
       .length,
   };
   const filters: Array<{ key: StreamFilter; label: string }> = [
     { key: "all", label: "Barchasi" },
-    { key: "leads", label: "Leadlar" },
-    { key: "orders", label: "Buyurtmalar" },
-    { key: "express", label: "Tezkor" },
+    ...(allowed.permissions.includes("leads")
+      ? [{ key: "leads" as const, label: "Leadlar" }]
+      : []),
+    ...(allowed.permissions.includes("pending_orders")
+      ? [{ key: "orders" as const, label: "Kutilayotgan" }]
+      : []),
+    ...(allowed.permissions.includes("quick_form_orders")
+      ? [{ key: "quick_form" as const, label: "Tezkor forma" }]
+      : []),
+    ...(allowed.permissions.some((value) => value !== "leads")
+      ? [{ key: "express" as const, label: "Tezkor yetkazish" }]
+      : []),
   ];
+  const activeFilter = filters.some((option) => option.key === filter)
+    ? filter
+    : "all";
+  const visible = streamQueue(orders, leads, activeFilter, search, newest);
+  const noAccess = Boolean(stream) && allowed.permissions.length === 0;
   const error = streamQuery.error || acceptOrder.error || acceptLead.error;
 
   return (
@@ -193,7 +220,7 @@ export default function StreamPage() {
             <button
               type="button"
               key={key}
-              aria-pressed={filter === key}
+              aria-pressed={activeFilter === key}
               onClick={() => setFilter(key)}
             >
               {label}
@@ -298,16 +325,20 @@ export default function StreamPage() {
             <EmptyState
               icon={search ? <Search size={22} /> : <Radio size={22} />}
               title={
-                search
-                  ? "Natija topilmadi"
-                  : filter === "leads"
-                    ? "Yangi lead kutilmoqda"
-                    : "Oqimda hozircha buyurtma yo'q"
+                noAccess
+                  ? "Oqim turlari ruxsat etilmagan"
+                  : search
+                    ? "Natija topilmadi"
+                    : activeFilter === "leads"
+                      ? "Yangi lead kutilmoqda"
+                      : "Oqimda hozircha buyurtma yo'q"
               }
               description={
-                search
-                  ? "Boshqa mahsulot nomi yoki raqam bilan qidiring."
-                  : "Yangi lead va buyurtmalar avtomatik ko'rinadi. Boshqa filtrni ham tekshirishingiz mumkin."
+                noAccess
+                  ? "Oqim ruxsatlarini sozlash uchun administratorga murojaat qiling. Qabul qilingan ishlar bilan Jarayon sahifasida davom etishingiz mumkin."
+                  : search
+                    ? "Boshqa mahsulot nomi yoki raqam bilan qidiring."
+                    : "Yangi lead va buyurtmalar avtomatik ko'rinadi. Boshqa filtrni ham tekshirishingiz mumkin."
               }
             />
           )}

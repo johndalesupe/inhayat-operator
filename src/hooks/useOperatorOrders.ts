@@ -4,7 +4,24 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { operatorApi } from "../lib/api";
 import { operatorKeys } from "../lib/queryKeys";
 import { useAppSelector } from "../store/hooks";
-import type { ProcessResponse, StreamResponse } from "../types";
+import type {
+  CreateOperatorOrder,
+  ProcessResponse,
+  StreamResponse,
+} from "../types";
+
+export function useCreateOperatorOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateOperatorOrder) => operatorApi.createOrder(body),
+    onSuccess: (order) => {
+      queryClient.setQueryData(operatorKeys.order(order._id), order);
+      void queryClient.invalidateQueries({ queryKey: operatorKeys.wallet });
+      void queryClient.invalidateQueries({ queryKey: operatorKeys.process });
+      void queryClient.invalidateQueries({ queryKey: operatorKeys.stream });
+    },
+  });
+}
 
 export function useStreamOrders() {
   const token = useAppSelector((state) => state.auth.token);
@@ -131,6 +148,8 @@ export function useCancelOperatorOrder() {
     mutationFn: ({ id, cancelReason }: { id: string; cancelReason?: string }) =>
       operatorApi.cancelOrder(id, cancelReason),
     onSuccess: (order) => {
+      queryClient.setQueryData(operatorKeys.order(order._id), order);
+      void queryClient.invalidateQueries({ queryKey: operatorKeys.wallet });
       void queryClient.invalidateQueries({ queryKey: operatorKeys.process });
       void queryClient.invalidateQueries({ queryKey: operatorKeys.stream });
       void queryClient.invalidateQueries({

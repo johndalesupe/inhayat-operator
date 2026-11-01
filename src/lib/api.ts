@@ -1,4 +1,6 @@
 import type {
+  OperatorCatalogProduct,
+  CreateOperatorOrder,
   OperatorLead,
   UpdateOperatorLead,
   ConvertOperatorLead,
@@ -142,6 +144,14 @@ export const operatorApi = {
     }),
 
   stream: () => request<StreamResponse>("/operator/orders/stream"),
+
+  catalogProduct: (numericId: number) =>
+    request<OperatorCatalogProduct>(`/operator/orders/catalog/${numericId}`),
+  createOrder: (body: CreateOperatorOrder) =>
+    request<OperatorOrder>("/operator/orders", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 
   leadDetails: (id: string) => request<OperatorLead>(`/operator/leads/${id}`),
   acceptLead: (id: string) =>

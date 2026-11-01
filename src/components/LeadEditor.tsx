@@ -1,354 +1,285 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import {
+  Archive,
+  CheckCircle2,
+  Clock3,
+  FileText,
+  Info,
+  Phone,
+  Save,
+  UserRound,
+} from "lucide-react";
 import { useLeadActions } from "../hooks/useOperatorLeads";
-import {
-  useOperatorCities,
-  useOperatorRegions,
-} from "../hooks/useOperatorOrders";
 import { errorText, formatPrice } from "../lib/format";
-import type { OperatorLead, OrderDelivery, UpdateOperatorLead } from "../types";
-import {
-  BottomSheet,
-  GlassPanel,
-  PrimaryButton,
-  inputClass,
-  textareaClass,
-} from "./ui";
+import { deliveryComplete, type DeliveryDraft } from "../lib/delivery";
+import type { OperatorLead, UpdateOperatorLead } from "../types";
+import { BottomSheet } from "./ui";
 import { CustomerCallButton } from "./CustomerCallButton";
-import { deliveryLabel } from "./OrderEditor";
+import {
+  DeliveryFields,
+  FormField,
+  FormPanel,
+  QuantityControl,
+} from "./OrderFormParts";
+import { ProductPortrait } from "./OrderVisuals";
 
 export function LeadEditor({ lead }: { lead: OperatorLead }) {
   const router = useRouter();
   const { update, convert } = useLeadActions();
+  const customer = useRef<HTMLFieldSetElement>(null);
+  const submission = useRef(false);
   const [name, setName] = useState(lead.clientName ?? "");
   const [phone, setPhone] = useState(lead.clientPhoneNumber ?? "");
   const [quantity, setQuantity] = useState(lead.quantity);
   const [notes, setNotes] = useState(lead.notes ?? "");
-  const [regionId, setRegion] = useState(lead.delivery?.regionId ?? "");
-  const [cityId, setCity] = useState(lead.delivery?.cityId ?? "");
-  const [type, setType] = useState<OrderDelivery["type"]>(
-    lead.delivery?.type ?? "normal",
-  );
-  const [address, setAddress] = useState(lead.delivery?.address ?? "");
+  const [delivery, setDelivery] = useState<DeliveryDraft>({
+    regionId: lead.delivery?.regionId ?? "",
+    cityId: lead.delivery?.cityId ?? "",
+    deliveryType: lead.delivery?.type ?? "",
+    address: lead.delivery?.address ?? "",
+  });
   const [confirming, setConfirming] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const regions = useOperatorRegions();
-  const cities = useOperatorCities(regionId);
-  const city = cities.data?.find((item) => item._id === cityId);
   const busy = update.isPending || convert.isPending;
   const editable = !lead.orderId && lead.status !== "archived";
-  const options: OrderDelivery["type"][] = city
-    ? [
-        ...(city.price.beepostCityCenterPrice != null ||
-        city.price.normalPrice != null
-          ? ["normal" as const]
-          : []),
-        ...(city.price.beepostToHomePrice != null ||
-        city.price.toHomePrice != null
-          ? ["to_home" as const]
-          : []),
-        ...(city.price.privateDpPrice != null ? ["private_dp" as const] : []),
-        ...(city.price.sameDayRequiresPrepayment === false &&
-        (city.price.sameDayPrice != null || city.price.expressPrice != null)
-          ? ["express" as const]
-          : []),
-      ]
-    : [];
-  const fields = (): UpdateOperatorLead => ({
-    clientName: name.trim(),
-    clientPhoneNumber: phone.trim(),
-    quantity,
-    notes,
-  });
   const save = async (status?: UpdateOperatorLead["status"]) => {
     setSaved(false);
     await update.mutateAsync({
       id: lead._id,
-      body: { ...fields(), ...(status ? { status } : {}) },
+      body: {
+        clientName: name.trim(),
+        clientPhoneNumber: phone.trim(),
+        quantity,
+        notes,
+        ...(status ? { status } : {}),
+      },
     });
     setSaved(true);
   };
+  const saveCustomer = (status?: UpdateOperatorLead["status"]) => {
+    const controls = customer.current?.querySelectorAll<
+      HTMLInputElement | HTMLTextAreaElement
+    >("input,textarea");
+    if (
+      controls &&
+      Array.from(controls).some((control) => !control.reportValidity())
+    )
+      return;
+    if (submission.current) return;
+    submission.current = true;
+    void save(status)
+      .catch(() => {})
+      .finally(() => {
+        submission.current = false;
+      });
+  };
+  const confirm = async () => {
+    if (submission.current || !delivery.deliveryType) return;
+    submission.current = true;
+    try {
+      await save();
+      const result = await convert.mutateAsync({
+        id: lead._id,
+        body: {
+          regionId: delivery.regionId,
+          cityId: delivery.cityId,
+          deliveryType: delivery.deliveryType,
+          deliveryAddress: delivery.address.trim(),
+        },
+      });
+      setConfirming(false);
+      if (result.orderId) router.push(`/process/${result.orderId}`);
+    } catch {
+      /* Display mutation errors without discarding entered fields. */
+    } finally {
+      submission.current = false;
+    }
+  };
   if (!editable)
     return (
-      <GlassPanel className="space-y-3 p-5">
-        <p className="font-semibold">
+      <div className="form-panel">
+        <strong>
           {lead.orderId ? "Lead buyurtmaga aylantirilgan" : "Lead arxivlangan"}
-        </p>
+        </strong>
         <Link
-          className="text-sm font-semibold text-blue-700"
+          className="form-back"
           href={lead.orderId ? `/process/${lead.orderId}` : "/stream"}
         >
           {lead.orderNumber ?? "Oqimga qaytish"} →
         </Link>
-      </GlassPanel>
+      </div>
     );
-
+  const error = update.error || convert.error;
   return (
-    <div className="space-y-4">
-      <GlassPanel className="space-y-3 p-4">
-        <span className="soft-badge bg-violet-50 text-violet-700">
-          Lead · Oqim #{lead.streamNumericId}
-        </span>
-        <h2 className="font-semibold">{lead.product.nameUz}</h2>
-        <p className="text-xs text-slate-500">
-          {formatPrice(lead.product.discountPrice ?? lead.product.price)} / dona
-          · Yakuniy narx tasdiqlashda hisoblanadi
-        </p>
-        {lead.clientPhoneNumber && (
-          <CustomerCallButton phoneNumber={lead.clientPhoneNumber} />
-        )}
-        {lead.status === "call_back" && (
-          <p className="text-xs text-amber-700">
-            Mijozga qayta qo&apos;ng&apos;iroq qilish kerak.
-          </p>
-        )}
-      </GlassPanel>
+    <>
+      <section className="form-panel lead-preview">
+        <span className="work-kind">Lead · Oqim #{lead.streamNumericId}</span>
+        <div className="form-order-product">
+          <ProductPortrait
+            src={lead.product.thumbnailUrl}
+            name={lead.product.nameUz}
+            tone="lead"
+          />
+          <div className="min-w-0">
+            <h2>{lead.product.nameUz}</h2>
+            <strong>
+              {formatPrice(lead.product.discountPrice ?? lead.product.price)}{" "}
+              <span>/ dona</span>
+            </strong>
+            <p className="form-hint">
+              <Info size={15} />
+              Yakuniy narx tasdiqlashda hisoblanadi
+            </p>
+          </div>
+        </div>
+      </section>
       <form
-        className="space-y-4"
+        className="editing-stack"
         onSubmit={(event) => {
           event.preventDefault();
-          if (!options.includes(type)) return;
-          void save()
-            .then(() => setConfirming(true))
-            .catch(() => {});
+          setConfirming(true);
         }}
       >
-        <fieldset disabled={busy} className="space-y-4">
-          <GlassPanel className="grid gap-4 p-4 sm:grid-cols-2">
-            <label className="space-y-1.5 text-xs font-semibold">
-              Mijoz ismi
-              <input
-                className={inputClass}
-                required
-                maxLength={160}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                autoComplete="name"
-              />
-            </label>
-            <label className="space-y-1.5 text-xs font-semibold">
-              Telefon
-              <input
-                className={inputClass}
-                required
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                autoComplete="tel"
-              />
-            </label>
-            <label className="space-y-1.5 text-xs font-semibold">
-              Miqdor
-              <input
-                className={inputClass}
-                required
-                type="number"
-                min={1}
-                max={99}
-                step={1}
-                value={quantity || ""}
-                onChange={(e) => setQuantity(Number(e.target.value))}
-              />
-            </label>
-            <label className="space-y-1.5 text-xs font-semibold sm:col-span-2">
-              Izoh
-              <textarea
-                className={textareaClass}
-                maxLength={3000}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-              />
-            </label>
-            <div className="flex flex-wrap gap-3 sm:col-span-2">
-              <button
-                type="button"
-                className="min-h-10 text-xs font-semibold text-blue-700"
-                onClick={() => void save().catch(() => {})}
-              >
-                Saqlash
-              </button>
-              <button
-                type="button"
-                className="min-h-10 text-xs font-semibold text-amber-700"
-                onClick={() => void save("call_back").catch(() => {})}
-              >
-                Keyinroq qo&apos;ng&apos;iroq qilish
-              </button>
-              <button
-                type="button"
-                className="min-h-10 text-xs font-semibold text-rose-700"
-                onClick={() => setArchiving(true)}
-              >
-                Arxivlash
-              </button>
-            </div>
-          </GlassPanel>
-          <GlassPanel className="grid gap-4 p-4 sm:grid-cols-2">
-            <h2 className="section-title sm:col-span-2">Yetkazib berish</h2>
-            <label className="space-y-1.5 text-xs font-semibold">
-              Viloyat
-              <select
-                className={inputClass}
-                required
-                value={regionId}
-                onChange={(e) => {
-                  setRegion(e.target.value);
-                  setCity("");
-                }}
-              >
-                <option value="">Tanlang</option>
-                {regions.data?.map((item) => (
-                  <option key={item._id} value={item._id}>
-                    {item.name.uz}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1.5 text-xs font-semibold">
-              Shahar / tuman
-              <select
-                className={inputClass}
-                required
-                disabled={!regionId || cities.isLoading}
-                value={cityId}
-                onChange={(e) => setCity(e.target.value)}
-              >
-                <option value="">Tanlang</option>
-                {cities.data?.map((item) => (
-                  <option key={item._id} value={item._id}>
-                    {item.name.uz}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1.5 text-xs font-semibold">
-              Yetkazish turi
-              <select
-                className={inputClass}
-                required
-                value={options.includes(type) ? type : ""}
-                onChange={(e) =>
-                  setType(e.target.value as OrderDelivery["type"])
-                }
-              >
-                <option value="">Tanlang</option>
-                {options.map((item) => (
-                  <option key={item} value={item}>
-                    {deliveryLabel(item, city)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1.5 text-xs font-semibold sm:col-span-2">
-              Manzil
-              <input
-                className={inputClass}
-                required
-                maxLength={500}
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                autoComplete="street-address"
-              />
-            </label>
-            {(regions.error || cities.error) && (
-              <p role="alert" className="text-xs text-rose-700 sm:col-span-2">
-                Manzillar yuklanmadi.{" "}
+        <fieldset disabled={busy} className="editing-columns">
+          <fieldset ref={customer} className="editing-stack">
+            <FormPanel title="Mijoz ma’lumotlari" icon={UserRound}>
+              <FormField label="Mijoz ismi" icon={UserRound}>
+                <input
+                  required
+                  maxLength={160}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  autoComplete="name"
+                />
+              </FormField>
+              <div className="form-phone-quantity">
+                <FormField label="Telefon" icon={Phone}>
+                  <input
+                    required
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    autoComplete="tel"
+                  />
+                </FormField>
+                <div className="form-field">
+                  <span>Miqdor</span>
+                  <QuantityControl value={quantity} onChange={setQuantity} />
+                </div>
+              </div>
+              <FormField label="Izoh" icon={FileText}>
+                <textarea
+                  rows={2}
+                  maxLength={3000}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Izoh kiriting..."
+                />
+              </FormField>
+              <div className="form-lead-actions">
+                {phone ? (
+                  <CustomerCallButton
+                    phoneNumber={phone}
+                    className="form-call"
+                  />
+                ) : (
+                  <span />
+                )}
                 <button
                   type="button"
-                  className="underline"
-                  onClick={() => {
-                    void regions.refetch();
-                    if (regionId) void cities.refetch();
-                  }}
+                  className="form-button"
+                  onClick={() => saveCustomer()}
                 >
-                  Qayta urinish
+                  <Save size={18} />
+                  Saqlash
                 </button>
+                <button
+                  type="button"
+                  className="form-button form-button--amber"
+                  onClick={() => saveCustomer("call_back")}
+                >
+                  <Clock3 size={18} />
+                  Keyinroq qo‘ng‘iroq
+                </button>
+                <button
+                  type="button"
+                  className="form-button form-button--danger"
+                  onClick={() => setArchiving(true)}
+                >
+                  <Archive size={18} />
+                  Arxivlash
+                </button>
+              </div>
+              {lead.status === "call_back" && (
+                <p className="form-hint">
+                  Mijozga qayta qo‘ng‘iroq qilish kerak.
+                </p>
+              )}
+            </FormPanel>
+          </fieldset>
+          <div className="editing-stack">
+            <DeliveryFields value={delivery} onChange={setDelivery} />
+            {!deliveryComplete(delivery) && (
+              <p className="form-notice">
+                <Info size={16} />
+                Yetkazish ma’lumotlarini to‘ldiring.
               </p>
             )}
-            {city && !options.length && (
-              <p className="text-xs text-amber-700 sm:col-span-2">
-                Bu hududda yetkazishda to&apos;lov usuli mavjud emas.
+            <button
+              type="submit"
+              className="form-button form-button--primary"
+              disabled={!deliveryComplete(delivery)}
+            >
+              <CheckCircle2 size={19} />
+              Buyurtmani tasdiqlash
+            </button>
+            {error && (
+              <p role="alert" className="form-error">
+                {errorText(error, "Amal bajarilmadi")}
               </p>
             )}
-          </GlassPanel>
-          <PrimaryButton
-            type="submit"
-            disabled={busy || !city || !options.includes(type)}
-            className="w-full"
-          >
-            {busy && <Loader2 size={16} className="animate-spin" />} Buyurtmani
-            tasdiqlash
-          </PrimaryButton>
+            {saved && !error && (
+              <p role="status" className="form-success">
+                Ma’lumotlar saqlandi.
+              </p>
+            )}
+          </div>
         </fieldset>
       </form>
-      {(update.error || convert.error) && (
-        <p
-          role="alert"
-          className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700"
-        >
-          {errorText(update.error ?? convert.error, "Amal bajarilmadi")}
-        </p>
-      )}
-      {saved && !update.error && (
-        <p role="status" className="text-xs text-emerald-700">
-          Ma&apos;lumotlar saqlandi.
-        </p>
-      )}
       <BottomSheet
         open={confirming}
         onClose={() => {
           if (!busy) setConfirming(false);
         }}
         title="Buyurtmani tasdiqlaysizmi?"
-        description="Mijoz bilan kelishganingizdan so'ng tasdiqlang."
+        description="Mijoz bilan kelishganingizdan so‘ng tasdiqlang."
       >
-        <div className="space-y-4">
-          <p className="text-sm">
+        <div className="editing-stack">
+          <p className="form-summary">
             {name} · {phone}
             <br />
             {lead.product.nameUz} × {quantity}
             <br />
-            {city?.name.uz}, {address}
-            <br />
-            {deliveryLabel(type, city)}
+            {delivery.address}
           </p>
-          {convert.error && (
-            <p role="alert" className="text-sm text-rose-700">
-              {errorText(convert.error, "Buyurtma yaratilmadi")}
+          {error && (
+            <p role="alert" className="form-error">
+              {errorText(error, "Buyurtma yaratilmadi")}
             </p>
           )}
-          <PrimaryButton
+          <button
             type="button"
+            className="form-button form-button--primary"
             disabled={busy}
-            className="w-full"
-            onClick={() =>
-              convert.mutate(
-                {
-                  id: lead._id,
-                  body: {
-                    regionId,
-                    cityId,
-                    deliveryType: type,
-                    deliveryAddress: address,
-                  },
-                },
-                {
-                  onSuccess: (result) => {
-                    setConfirming(false);
-                    if (result.orderId)
-                      router.push(`/process/${result.orderId}`);
-                  },
-                },
-              )
-            }
+            onClick={() => void confirm()}
           >
             {busy ? "Saqlanmoqda..." : "Ha, tasdiqlash"}
-          </PrimaryButton>
+          </button>
         </div>
       </BottomSheet>
       <BottomSheet
@@ -357,21 +288,29 @@ export function LeadEditor({ lead }: { lead: OperatorLead }) {
           if (!busy) setArchiving(false);
         }}
         title="Leadni arxivlash"
-        description="Buyurtma yaratilmaydi. Lead faol ro'yxatdan olib tashlanadi."
+        description="Buyurtma yaratilmaydi. Lead faol ro‘yxatdan olib tashlanadi."
       >
-        <PrimaryButton
-          type="button"
-          disabled={busy}
-          className="w-full"
-          onClick={() =>
-            void save("archived")
-              .then(() => router.push("/stream"))
-              .catch(() => setArchiving(false))
-          }
-        >
-          Arxivlashni tasdiqlash
-        </PrimaryButton>
+        <div className="editing-stack">
+          {update.error && (
+            <p role="alert" className="form-error">
+              {errorText(update.error, "Lead arxivlanmadi")}
+            </p>
+          )}
+          <button
+            type="button"
+            className="form-button form-button--danger"
+            disabled={busy}
+            onClick={() =>
+              update.mutate(
+                { id: lead._id, body: { status: "archived" } },
+                { onSuccess: () => router.push("/stream") },
+              )
+            }
+          >
+            Arxivlashni tasdiqlash
+          </button>
+        </div>
       </BottomSheet>
-    </div>
+    </>
   );
 }

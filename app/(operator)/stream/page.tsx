@@ -176,7 +176,7 @@ export default function StreamPage() {
       <header className="queue-heading">
         <div>
           <h1>Oqim</h1>
-          <p>Lead yoki buyurtmani tanlang va ishni boshlang.</p>
+          <p>Lead yoki buyurtmani tanlang.</p>
         </div>
         <div className="queue-live">
           <LiveStreamStatus
@@ -246,6 +246,9 @@ export default function StreamPage() {
             </button>
           )}
         </div>
+      </div>
+      <div className="queue-results">
+        <strong>{visible.length} ta natija</strong>
         <select
           className="queue-sort"
           aria-label="Oqimni saralash"

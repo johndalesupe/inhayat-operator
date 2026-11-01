@@ -66,24 +66,20 @@ function applyInsets(webApp: TelegramWebApp) {
     left: 0,
   };
   const missingInsetApi = !webApp.safeAreaInset && !webApp.contentSafeAreaInset;
-  const mobileTopGuard = window.matchMedia("(max-width: 768px)").matches ? 52 : 0;
+  const mobileTopGuard = window.matchMedia("(max-width: 768px)").matches
+    ? 52
+    : 0;
   const root = document.documentElement;
   root.style.setProperty(
     "--tg-safe-top",
     `${Math.max(safe.top + content.top, mobileTopGuard, missingInsetApi ? 52 : 0)}px`,
   );
-  root.style.setProperty(
-    "--tg-safe-right",
-    `${safe.right + content.right}px`,
-  );
+  root.style.setProperty("--tg-safe-right", `${safe.right + content.right}px`);
   root.style.setProperty(
     "--tg-safe-bottom",
     `${safe.bottom + content.bottom}px`,
   );
-  root.style.setProperty(
-    "--tg-safe-left",
-    `${safe.left + content.left}px`,
-  );
+  root.style.setProperty("--tg-safe-left", `${safe.left + content.left}px`);
 }
 
 export function TelegramProvider({ children }: { children: ReactNode }) {
@@ -124,8 +120,8 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
         app.ready();
         app.expand();
         app.enableClosingConfirmation?.();
-        app.setHeaderColor?.("#f6f7fb");
-        app.setBackgroundColor?.("#f6f7fb");
+        app.setHeaderColor?.("#f6f5ff");
+        app.setBackgroundColor?.("#f6f5ff");
         app.setBottomBarColor?.("#ffffff");
         try {
           app.requestFullscreen?.();
@@ -170,7 +166,8 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
       connectedApp?.offEvent?.("safeAreaChanged", updateInsets);
       connectedApp?.offEvent?.("contentSafeAreaChanged", updateInsets);
       connectedApp?.offEvent?.("fullscreenChanged", updateInsets);
-      if (retryFullscreen) window.removeEventListener("pointerdown", retryFullscreen);
+      if (retryFullscreen)
+        window.removeEventListener("pointerdown", retryFullscreen);
     };
   }, []);
 

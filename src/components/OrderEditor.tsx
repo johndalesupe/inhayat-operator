@@ -1,621 +1,362 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useRef, useState } from "react";
 import {
   CheckCircle2,
-  Loader2,
-  MapPin,
+  FileText,
+  Package,
   Phone,
   Save,
-  Truck,
-  Zap,
-  House,
-  Package,
   UserRound,
   XCircle,
 } from "lucide-react";
-import { useForm, useWatch } from "react-hook-form";
-import { yupResolver } from "@hookform/resolvers/yup";
-import * as yup from "yup";
 import {
-  useOperatorCities,
-  useOperatorRegions,
+  useCancelOperatorOrder,
+  useConfirmOperatorOrder,
+  useUpdateOperatorOrder,
 } from "../hooks/useOperatorOrders";
-import { formatPrice } from "../lib/format";
-import type { DeliveryCity, OperatorOrder } from "../types";
+import { customerName, errorText, formatPrice } from "../lib/format";
+import { deliveryComplete, type DeliveryDraft } from "../lib/delivery";
+import type { OperatorOrder } from "../types";
+import { BottomSheet } from "./ui";
+import { CustomerCallButton } from "./CustomerCallButton";
 import {
-  ActionButton,
-  BottomSheet,
-  EmptyState,
-  FieldError,
-  GlassPanel,
-  PrimaryButton,
-  inputClass,
-  textareaClass,
-} from "./ui";
+  DeliveryFields,
+  FormField,
+  FormPanel,
+  QuantityControl,
+} from "./OrderFormParts";
+import { ProductPortrait } from "./OrderVisuals";
 
-type OperatorDeliveryType = NonNullable<OperatorOrder["delivery"]>["type"];
-
-const OPERATIONAL_DELIVERY_TYPES: OperatorDeliveryType[] = [
-  "normal",
-  "private_dp",
-  "express",
-  "to_home",
-  "yandex",
-];
-
-const orderFormSchema = yup.object({
-  deliveryType: yup
-    .mixed<OperatorDeliveryType>()
-    .oneOf([
-      "normal",
-      "private_dp",
-      "express",
-      "to_home",
-      "yandex",
-      "taxi_delivery",
-    ])
-    .required(),
-  regionId: yup.string().trim().required("Viloyat yoki shahar kerak"),
-  cityId: yup.string().trim().required("Shahar yoki tuman kerak"),
-  address: yup.string().trim().required("Manzil kerak"),
-  notes: yup.string().default(""),
-  items: yup
-    .array(
-      yup.object({
-        numericId: yup.number().required(),
-        quantity: yup
-          .number()
-          .typeError("Miqdor raqam bo'lishi kerak")
-          .integer("Butun raqam kiriting")
-          .min(1, "Kamida 1 dona")
-          .required("Miqdor kerak"),
-      }),
-    )
-    .required(),
-});
-
-function deliveryAvailable(type: OperatorDeliveryType, city: DeliveryCity) {
-  const price = city.price;
-  if (type === "normal") {
-    return price.beepostCityCenterPrice != null || price.normalPrice != null;
-  }
-  if (type === "to_home") {
-    return price.beepostToHomePrice != null || price.toHomePrice != null;
-  }
-  if (type === "private_dp") {
-    return price.privateDpPrice != null;
-  }
-  if (type === "express") {
-    return price.sameDayPrice != null || price.expressPrice != null;
-  }
-  if (type === "yandex") return Boolean(price.yandexAvailable);
-  return false;
-}
-
-function deliveryPrice(type: OperatorDeliveryType, city: DeliveryCity) {
-  if (type === "normal") {
-    return Number(
-      city.price.beepostCityCenterPrice ?? city.price.normalPrice ?? 0,
-    );
-  }
-  if (type === "to_home") {
-    return Number(city.price.beepostToHomePrice ?? city.price.toHomePrice ?? 0);
-  }
-  if (type === "private_dp") {
-    return Number(city.price.privateDpPrice ?? 0);
-  }
-  if (type === "express") {
-    return Number(city.price.sameDayPrice ?? city.price.expressPrice ?? 0);
-  }
-  return 0;
-}
-
-export function deliveryLabel(
-  type: OperatorDeliveryType,
-  city?: DeliveryCity | null,
-) {
-  const configured = city?.price.deliveryOptions?.find(
-    (option) => option.type === type,
-  );
-  if (configured?.titleUz) return configured.titleUz;
-  if (type === "normal") return "Beepost shahar markazi";
-  if (type === "private_dp") return "Xususiy DP";
-  if (type === "to_home") return "Beepost uyga";
-  if (type === "express") return "Shu kunning o'zida";
-  if (type === "yandex") return "Yandex";
-  return "Taksi (arxiv)";
-}
-
-export type OrderFormValues = yup.InferType<typeof orderFormSchema>;
-
-function idString(value: unknown) {
-  if (!value) return "";
-  if (typeof value === "string") return value;
-  if (typeof value === "number") return String(value);
-  if (typeof value === "object") {
-    const objectValue = value as {
-      _id?: unknown;
-      $oid?: unknown;
-      toString?: () => string;
-    };
-    if (objectValue._id) return idString(objectValue._id);
-    if (objectValue.$oid) return idString(objectValue.$oid);
-    const stringValue = objectValue.toString?.();
-    if (stringValue && stringValue !== "[object Object]") return stringValue;
-  }
-  return "";
-}
-
-function defaultValues(order: OperatorOrder): OrderFormValues {
-  return {
-    deliveryType: order.delivery?.type ?? "normal",
-    regionId: idString(order.delivery?.regionId),
-    cityId: idString(order.delivery?.cityId),
-    address: order.delivery?.address ?? order.deliveryAddress ?? "",
-    notes: order.notes ?? "",
-    items: order.items.map((item) => ({
-      numericId: item.numericId,
-      quantity: item.quantity,
-    })),
-  };
-}
-
-export function OrderEditor({
+export function CancelOrderButton({
   order,
-  onSave,
-  onConfirm,
-  onCancel,
-  canConfirm,
-  confirmedPopupOpen,
-  onCloseConfirmedPopup,
-  saving,
-  confirming,
-  cancelling,
+  disabled = false,
 }: {
-  order: OperatorOrder | null;
-  onSave: (id: string, values: OrderFormValues) => void;
-  onConfirm: (id: string, notes?: string) => void;
-  onCancel: (id: string, cancelReason?: string) => void;
-  canConfirm: boolean;
-  confirmedPopupOpen: boolean;
-  onCloseConfirmedPopup: () => void;
-  saving: boolean;
-  confirming: boolean;
-  cancelling: boolean;
+  order: OperatorOrder;
+  disabled?: boolean;
 }) {
-  const [pendingAction, setPendingAction] = useState<
-    "confirm" | "cancel" | null
-  >(null);
-  const [cancelReason, setCancelReason] = useState("");
-  const form = useForm<OrderFormValues>({
-    resolver: yupResolver(orderFormSchema),
-    defaultValues: order ? defaultValues(order) : undefined,
-  });
-
-  useEffect(() => {
-    if (!order) return;
-    form.reset(defaultValues(order));
-    // Reset only when the selected order changes. Realtime cache refreshes
-    // must not erase an operator's in-progress form edits.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form, order?._id]);
-  const selectedRegionId = useWatch({
-    control: form.control,
-    name: "regionId",
-  });
-  const selectedCityId = useWatch({
-    control: form.control,
-    name: "cityId",
-  });
-  const deliveryType = useWatch({
-    control: form.control,
-    name: "deliveryType",
-  });
-  const regionsQuery = useOperatorRegions();
-  const citiesQuery = useOperatorCities(selectedRegionId);
-  const cities = useMemo(() => citiesQuery.data ?? [], [citiesQuery.data]);
-  const selectedCity = useMemo(
-    () => cities.find((city) => city._id === selectedCityId) ?? null,
-    [cities, selectedCityId],
-  );
-
-  if (!order) {
-    return (
-      <EmptyState
-        icon={<UserRound className="h-5 w-5" />}
-        title="Buyurtma tanlang"
-        description="Mijozga qo'ng'iroq qilib, manzil va miqdorni shu yerda yangilang."
-      />
-    );
-  }
-
-  const itemErrors = form.formState.errors.items;
-  const selectedDeliveryPrice = selectedCity
-    ? deliveryPrice(deliveryType, selectedCity)
-    : (order.delivery?.price ?? 0);
-
-  function cityLabel(city: DeliveryCity) {
-    const price = deliveryPrice(deliveryType, city);
-    const unavailable = !deliveryAvailable(deliveryType, city);
-    return `${city.name.uz} - ${formatPrice(price)}${
-      unavailable ? " (mavjud emas)" : ""
-    }`;
-  }
-
-  function openConfirmAction() {
-    if (!canConfirm) return;
-    void form.handleSubmit(() => setPendingAction("confirm"))();
-  }
-
-  function submitPendingAction() {
-    if (!order || !pendingAction) return;
-    if (pendingAction === "confirm") {
-      void form.handleSubmit((values) => {
-        onConfirm(order._id, values.notes);
-        setPendingAction(null);
-      })();
-      return;
-    }
-
-    onCancel(order._id, cancelReason.trim() || undefined);
-    setPendingAction(null);
-  }
-
+  const cancel = useCancelOperatorOrder();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  if (!["pending", "confirmed"].includes(order.status)) return null;
   return (
-    <GlassPanel className="p-3.5">
-      <div className="mb-3">
-        <p className="text-sm font-bold text-neutral-500">Buyurtma tahriri</p>
-        <h2 className="text-lg font-semibold text-neutral-950">
-          Yetkazish va tasdiqlash
-        </h2>
-      </div>
-
-      <form className="space-y-3">
-        <div className="rounded-xl bg-[#f6f5fb] p-3">
-          <span className="mb-1 block text-sm font-semibold text-neutral-700">
-            Telefon
-          </span>
-          <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-neutral-950">
-            <Phone className="h-4 w-4 shrink-0 text-neutral-500" />
-            <span className="break-words">
-              {order.customer.phoneNumber ?? "-"}
-            </span>
-          </div>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block">
-            <span className="mb-1 block text-sm font-semibold text-neutral-700">
-              Viloyat yoki shahar
-            </span>
-            <select
-              {...form.register("regionId", {
-                onChange: () => {
-                  form.setValue("cityId", "", {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  });
-                },
-              })}
-              className={inputClass}
-              disabled={regionsQuery.isLoading}
-            >
-              <option value="">Tanlang</option>
-              {(regionsQuery.data ?? []).map((region) => (
-                <option key={region._id} value={region._id}>
-                  {region.name.uz}
-                </option>
-              ))}
-            </select>
-            <FieldError message={form.formState.errors.regionId?.message} />
-          </label>
-
-          <label className="block">
-            <span className="mb-1 block text-sm font-semibold text-neutral-700">
-              Shahar yoki tuman
-            </span>
-            <select
-              {...form.register("cityId")}
-              className={inputClass}
-              disabled={!selectedRegionId || citiesQuery.isLoading}
-            >
-              <option value="">
-                {selectedRegionId ? "Tanlang" : "Avval viloyatni tanlang"}
-              </option>
-              {cities.map((city) => {
-                const disabled = !deliveryAvailable(deliveryType, city);
-                return (
-                  <option key={city._id} value={city._id} disabled={disabled}>
-                    {cityLabel(city)}
-                  </option>
-                );
-              })}
-            </select>
-            <FieldError message={form.formState.errors.cityId?.message} />
-          </label>
-        </div>
-
-        <fieldset>
-          <legend className="mb-1 block text-sm font-semibold text-neutral-700">
-            Yetkazish turi
-          </legend>
-          <div
-            className="grid grid-cols-2 gap-2 sm:grid-cols-3"
-            role="radiogroup"
-            aria-label="Yetkazish turi"
-          >
-            {OPERATIONAL_DELIVERY_TYPES.map((type) => {
-              const available = selectedCity
-                ? deliveryAvailable(type, selectedCity)
-                : true;
-              const selected = deliveryType === type;
-              return (
-                <button
-                  key={type}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  disabled={!available}
-                  onClick={() => {
-                    form.setValue("deliveryType", type, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    });
-                    if (
-                      selectedCity &&
-                      !deliveryAvailable(type, selectedCity)
-                    ) {
-                      form.setValue("cityId", "", {
-                        shouldDirty: true,
-                        shouldValidate: true,
-                      });
-                    }
-                  }}
-                  className={`min-h-11 rounded-xl px-3 py-2 text-left text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
-                    selected
-                      ? "bg-blue-50 text-blue-800 ring-1 ring-blue-100"
-                      : "bg-[#f6f5fb] text-neutral-600"
-                  }`}
-                >
-                  <span className="flex items-center gap-1.5">
-                    {type === "express" ? (
-                      <Zap size={14} />
-                    ) : type === "to_home" ? (
-                      <House size={14} />
-                    ) : type === "private_dp" ? (
-                      <Package size={14} />
-                    ) : (
-                      <Truck size={14} />
-                    )}
-                    {deliveryLabel(type, selectedCity)}
-                  </span>
-                  {selectedCity && available ? (
-                    <span className="mt-0.5 block text-[10px] text-neutral-500">
-                      {formatPrice(deliveryPrice(type, selectedCity))}
-                    </span>
-                  ) : null}
-                </button>
-              );
-            })}
-            {deliveryType === "taxi_delivery" ? (
-              <div className="min-h-11 rounded-xl border border-neutral-200 bg-neutral-100 px-3 py-2 text-xs font-semibold text-neutral-500">
-                {deliveryLabel("taxi_delivery")}
-              </div>
-            ) : null}
-          </div>
-          <FieldError message={form.formState.errors.deliveryType?.message} />
-        </fieldset>
-
-        <label className="block">
-          <span className="mb-1 block text-sm font-semibold text-neutral-700">
-            Yetkazish narxi
-          </span>
-          <div className="flex h-11 items-center gap-2 rounded-xl bg-[#f6f5fb] px-3 text-sm font-semibold text-neutral-950">
-            <MapPin className="h-4 w-4 text-neutral-500" />
-            <span>
-              {deliveryLabel(deliveryType, selectedCity)} -{" "}
-              {formatPrice(selectedDeliveryPrice)}
-            </span>
-          </div>
-        </label>
-
-        <label className="block">
-          <span className="mb-1 block text-sm font-semibold text-neutral-700">
-            Manzil
-          </span>
-          <textarea
-            {...form.register("address")}
-            rows={2}
-            className={textareaClass}
-          />
-          <FieldError message={form.formState.errors.address?.message} />
-        </label>
-
-        <div>
-          <p className="mb-2 text-sm font-semibold text-neutral-700">
-            Mahsulot miqdori
-          </p>
-          <div className="space-y-2">
-            {order.items.map((item, index) => (
-              <div
-                key={item.numericId}
-                className="grid grid-cols-[1fr_96px] items-start gap-3 rounded-xl bg-[#f6f5fb] p-3"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-neutral-950">
-                    #{item.numericId} {item.name_uz}
-                  </p>
-                  <p className="text-xs font-semibold text-neutral-500">
-                    {formatPrice(item.price)}
-                  </p>
-                </div>
-                <div>
-                  <input
-                    type="number"
-                    aria-label={`${item.name_uz} miqdori`}
-                    min={1}
-                    {...form.register(`items.${index}.quantity`)}
-                    className={`${inputClass} h-10 px-3`}
-                  />
-                  <input
-                    type="hidden"
-                    {...form.register(`items.${index}.numericId`)}
-                  />
-                  <FieldError
-                    message={itemErrors?.[index]?.quantity?.message}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <label className="block">
-          <span className="mb-1 block text-sm font-semibold text-neutral-700">
-            Izoh
-          </span>
-          <textarea
-            {...form.register("notes")}
-            rows={2}
-            className={textareaClass}
-          />
-        </label>
-
-        <div className="rounded-xl bg-[#f6f5fb]/80 p-4 text-neutral-950">
-          <div className="flex justify-between text-sm font-semibold text-neutral-600">
-            <span>Mahsulotlar</span>
-            <span>{formatPrice(order.itemsAmount)}</span>
-          </div>
-          {order.delivery && (
-            <div className="mt-2 flex justify-between text-sm font-semibold text-neutral-600">
-              <span>Yetkazish</span>
-              <span>{formatPrice(order.delivery.price)}</span>
-            </div>
+    <>
+      <button
+        type="button"
+        className="form-button form-button--danger"
+        disabled={disabled || cancel.isPending}
+        onClick={() => setOpen(true)}
+      >
+        <XCircle size={18} />
+        Buyurtmani bekor qilish
+      </button>
+      <BottomSheet
+        open={open}
+        onClose={() => {
+          if (!cancel.isPending) setOpen(false);
+        }}
+        title="Buyurtmani bekor qilasizmi?"
+        description={`${order.orderNumber}: mahsulotlar zaxiraga qaytariladi va hisob-kitoblar yangilanadi.`}
+      >
+        <form
+          className="editing-stack"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (cancel.isPending) return;
+            cancel.mutate(
+              { id: order._id, cancelReason: reason.trim() || undefined },
+              { onSuccess: () => setOpen(false) },
+            );
+          }}
+        >
+          <FormField label="Bekor qilish sababi" icon={FileText}>
+            <textarea
+              maxLength={500}
+              rows={2}
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              placeholder="Mijoz bilan kelishilgan sabab..."
+              disabled={cancel.isPending}
+            />
+          </FormField>
+          {cancel.error && (
+            <p role="alert" className="form-error">
+              {errorText(cancel.error, "Buyurtma bekor qilinmadi")}
+            </p>
           )}
-          <div className="mt-3 flex justify-between pt-3 text-base font-semibold">
-            <span>Qolgan summa</span>
-            <span>{formatPrice(order.totalAmount)}</span>
-          </div>
-        </div>
-
-        <div className="grid gap-2">
-          <ActionButton
-            type="button"
-            isLoading={saving}
-            onClick={form.handleSubmit((values) => onSave(order._id, values))}
+          <button
+            type="submit"
+            className="form-button form-button--danger"
+            disabled={cancel.isPending}
           >
-            {!saving && <Save size={15} />} O&apos;zgarishlarni saqlash
-          </ActionButton>
-          <div className={canConfirm ? "grid grid-cols-2 gap-2" : "grid gap-2"}>
-            <ActionButton
-              type="button"
-              disabled={cancelling || confirming}
-              onClick={() => setPendingAction("cancel")}
-              className="border-red-200 bg-red-50 text-red-700 hover:border-red-300 hover:bg-red-100"
-            >
-              {cancelling ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <XCircle className="h-4 w-4" />
-              )}
-              Bekor qilish
-            </ActionButton>
-            {canConfirm ? (
-              <PrimaryButton
-                type="button"
-                disabled={confirming || cancelling}
-                onClick={openConfirmAction}
-                className="from-emerald-600 via-green-600 to-teal-500"
-              >
-                {confirming ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4" />
-                )}
-                Tasdiqlash
-              </PrimaryButton>
-            ) : (
-              <div className="flex h-11 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-sm font-semibold text-emerald-700">
-                <CheckCircle2 className="h-4 w-4" />
-                Tasdiqlangan
-              </div>
+            {cancel.isPending ? "Bekor qilinmoqda..." : "Ha, bekor qilish"}
+          </button>
+        </form>
+      </BottomSheet>
+    </>
+  );
+}
+
+export function OrderCustomer({ order }: { order: OperatorOrder }) {
+  return (
+    <FormPanel title="Mijoz ma’lumotlari" icon={UserRound}>
+      <div className="form-readout">
+        <UserRound size={18} />
+        <strong>{customerName(order)}</strong>
+      </div>
+      <div className="form-readout">
+        <Phone size={18} />
+        <span>{order.customer.phoneNumber || "Telefon kiritilmagan"}</span>
+      </div>
+      {order.customer.phoneNumber && (
+        <CustomerCallButton
+          phoneNumber={order.customer.phoneNumber}
+          className="form-call"
+        />
+      )}
+    </FormPanel>
+  );
+}
+
+export function OrderProducts({
+  order,
+  quantities,
+  onQuantity,
+}: {
+  order: OperatorOrder;
+  quantities?: number[];
+  onQuantity?: (index: number, quantity: number) => void;
+}) {
+  return (
+    <FormPanel title="Mahsulotlar" icon={Package}>
+      {order.items.map((item, index) => (
+        <div
+          className="form-order-product"
+          key={`${item.numericId}-${item.variantKey ?? index}`}
+        >
+          <ProductPortrait
+            src={item.thumbnailUrl}
+            name={item.name_uz}
+            quantity={quantities?.[index] ?? item.quantity}
+          />
+          <div className="min-w-0">
+            <h3>{item.name_uz}</h3>
+            <p>
+              #{item.numericId}
+              {item.variantName ? ` · ${item.variantName}` : ""}
+            </p>
+            <strong>
+              {formatPrice(item.price)} <span>/ dona</span>
+            </strong>
+            {onQuantity && (
+              <QuantityControl
+                label={`${item.name_uz}: miqdor`}
+                value={quantities?.[index] ?? item.quantity}
+                onChange={(value) => onQuantity(index, value)}
+              />
             )}
           </div>
         </div>
-      </form>
+      ))}
+      {quantities && (
+        <div className="form-total">
+          <span>
+            Mahsulotlar jami<small>Yetkazish alohida to‘lanadi</small>
+          </span>
+          <strong>
+            {formatPrice(
+              order.items.reduce(
+                (sum, item, index) => sum + item.price * quantities[index],
+                0,
+              ),
+            )}
+          </strong>
+        </div>
+      )}
+    </FormPanel>
+  );
+}
 
-      <BottomSheet
-        open={Boolean(pendingAction)}
-        onClose={() => setPendingAction(null)}
-        title={
-          pendingAction === "cancel"
-            ? "Buyurtmani bekor qilasizmi?"
-            : "Buyurtmani tasdiqlaysizmi?"
-        }
-        description={
-          pendingAction === "cancel"
-            ? "Bekor qilingandan keyin buyurtma jarayondan chiqadi."
-            : "Tasdiqlangandan keyin buyurtma keyingi jarayonga o'tadi."
-        }
+export function OrderEditor({ order }: { order: OperatorOrder }) {
+  const update = useUpdateOperatorOrder();
+  const confirm = useConfirmOperatorOrder();
+  const form = useRef<HTMLFormElement>(null);
+  const submission = useRef(false);
+  const [delivery, setDelivery] = useState<DeliveryDraft>({
+    regionId: order.delivery?.regionId ?? "",
+    cityId: order.delivery?.cityId ?? "",
+    deliveryType: order.delivery?.type ?? "",
+    address: order.delivery?.address ?? order.deliveryAddress ?? "",
+  });
+  const [notes, setNotes] = useState(order.notes ?? "");
+  const [quantities, setQuantities] = useState(
+    order.items.map((item) => item.quantity),
+  );
+  const [review, setReview] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const busy = update.isPending || confirm.isPending;
+  // The pending-order quantity endpoint cannot represent attributed pricing
+  // or multiple variants of the same product. Preserve their original lines.
+  const quantitiesEditable =
+    !order.marketerId &&
+    new Set(order.items.map((item) => item.numericId)).size ===
+      order.items.length;
+  const save = async () => {
+    if (!delivery.deliveryType) throw new Error("Yetkazish turini tanlang");
+    setSaved(false);
+    await update.mutateAsync({
+      id: order._id,
+      body: {
+        regionId: delivery.regionId,
+        cityId: delivery.cityId,
+        deliveryType: delivery.deliveryType,
+        address: delivery.address.trim(),
+        notes,
+        ...(quantitiesEditable &&
+        quantities.some((value, index) => value !== order.items[index].quantity)
+          ? {
+              items: order.items.map((item, index) => ({
+                numericId: item.numericId,
+                quantity: quantities[index],
+              })),
+            }
+          : {}),
+      },
+    });
+    setSaved(true);
+  };
+  const submit = async (confirmAfter: boolean) => {
+    if (submission.current || !form.current?.reportValidity()) return;
+    submission.current = true;
+    try {
+      await save();
+      if (confirmAfter) {
+        await confirm.mutateAsync({ id: order._id, notes });
+        setReview(false);
+      }
+    } catch {
+      /* Mutation errors remain visible in the form and review sheet. */
+    } finally {
+      submission.current = false;
+    }
+  };
+  const error = update.error || confirm.error;
+  return (
+    <>
+      <form
+        ref={form}
+        className="editing-stack"
+        onSubmit={(event) => {
+          event.preventDefault();
+          setReview(true);
+        }}
       >
-        {pendingAction === "cancel" && (
-          <label className="mb-4 block">
-            <span className="mb-1 block text-xs font-semibold text-slate-600">
-              Bekor qilish sababi
-            </span>
-            <textarea
-              value={cancelReason}
-              onChange={(event) => setCancelReason(event.target.value)}
-              rows={3}
-              className={textareaClass}
-              placeholder="Masalan: mijoz fikridan qaytdi"
+        <fieldset disabled={busy} className="editing-columns">
+          <div className="editing-stack">
+            <OrderCustomer order={order} />
+            <OrderProducts
+              order={order}
+              quantities={quantities}
+              onQuantity={
+                quantitiesEditable
+                  ? (index, quantity) =>
+                      setQuantities((current) =>
+                        current.map((value, i) =>
+                          i === index ? quantity : value,
+                        ),
+                      )
+                  : undefined
+              }
             />
-          </label>
+          </div>
+          <div className="editing-stack">
+            <DeliveryFields
+              value={delivery}
+              onChange={setDelivery}
+              allowOnline={order.paymentMethod !== "pod"}
+            />
+            <FormPanel title="Izoh" icon={FileText}>
+              <FormField label="Buyurtma izohi">
+                <textarea
+                  rows={2}
+                  maxLength={3000}
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  placeholder="Izoh kiriting..."
+                />
+              </FormField>
+            </FormPanel>
+            <div className="form-actions">
+              <button
+                type="button"
+                className="form-button"
+                disabled={!deliveryComplete(delivery)}
+                onClick={() => void submit(false)}
+              >
+                <Save size={18} />
+                Saqlash
+              </button>
+            </div>
+            {!deliveryComplete(delivery) && (
+              <p className="form-notice">
+                Yetkazish ma’lumotlarini to‘ldiring.
+              </p>
+            )}
+            <button
+              type="submit"
+              className="form-button form-button--primary"
+              disabled={!deliveryComplete(delivery)}
+            >
+              <CheckCircle2 size={19} />
+              Buyurtmani tasdiqlash
+            </button>
+          </div>
+        </fieldset>
+        {error && (
+          <p role="alert" className="form-error">
+            {errorText(error, "O‘zgarishlar saqlanmadi")}
+          </p>
         )}
-        <div className="grid grid-cols-2 gap-2">
-          <ActionButton
-            type="button"
-            onClick={() => setPendingAction(null)}
-            disabled={confirming || cancelling}
-          >
-            Ortga
-          </ActionButton>
+        {saved && !error && (
+          <p role="status" className="form-success">
+            Ma’lumotlar saqlandi.
+          </p>
+        )}
+      </form>
+      <CancelOrderButton order={order} disabled={busy} />
+      <BottomSheet
+        open={review}
+        onClose={() => {
+          if (!busy) setReview(false);
+        }}
+        title="Buyurtmani tasdiqlaysizmi?"
+        description="Kiritilgan o‘zgarishlar saqlanadi, so‘ng buyurtma tasdiqlanadi."
+      >
+        <div className="editing-stack">
+          <p className="form-summary">
+            {customerName(order)} · {order.customer.phoneNumber}
+            <br />
+            {order.items
+              .map((item, index) => `${item.name_uz} × ${quantities[index]}`)
+              .join(", ")}
+            <br />
+            {delivery.address}
+          </p>
+          {error && (
+            <p role="alert" className="form-error">
+              {errorText(error, "Tasdiqlanmadi")}
+            </p>
+          )}
           <button
             type="button"
-            onClick={submitPendingAction}
-            disabled={confirming || cancelling}
-            className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl px-3 text-xs font-semibold text-white transition disabled:opacity-50 ${pendingAction === "cancel" ? "bg-rose-600 hover:bg-rose-700" : "bg-emerald-600 hover:bg-emerald-700"}`}
+            className="form-button form-button--primary"
+            disabled={busy}
+            onClick={() => void submit(true)}
           >
-            {confirming || cancelling ? (
-              <Loader2 size={15} className="animate-spin" />
-            ) : pendingAction === "cancel" ? (
-              <XCircle size={15} />
-            ) : (
-              <CheckCircle2 size={15} />
-            )}
-            {pendingAction === "cancel" ? "Bekor qilish" : "Tasdiqlash"}
+            {busy ? "Saqlanmoqda..." : "Ha, tasdiqlash"}
           </button>
         </div>
       </BottomSheet>
-      <BottomSheet
-        open={confirmedPopupOpen}
-        onClose={onCloseConfirmedPopup}
-        title="Buyurtma tasdiqlandi"
-        description="Buyurtma muvaffaqiyatli tasdiqlandi."
-      >
-        <div className="mb-4 flex justify-center rounded-xl bg-emerald-50 p-5">
-          <CheckCircle2 size={36} className="text-emerald-600" />
-        </div>
-        <PrimaryButton
-          type="button"
-          onClick={onCloseConfirmedPopup}
-          className="w-full"
-        >
-          <CheckCircle2 size={15} />
-          Tushunarli
-        </PrimaryButton>
-      </BottomSheet>
-    </GlassPanel>
+    </>
   );
 }

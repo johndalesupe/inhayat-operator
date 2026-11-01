@@ -12,6 +12,7 @@ import {
   Loader2,
   LogOut,
   Radio,
+  CirclePlus,
   UserRound,
   Wallet,
 } from "lucide-react";
@@ -31,6 +32,7 @@ import { allowedStreamItems } from "../lib/streamQueue";
 const navItems = [
   { href: "/stream", label: "Oqim", icon: Radio },
   { href: "/process", label: "Jarayon", icon: LayoutGrid },
+  { href: "/create", label: "Yaratish", icon: CirclePlus },
   { href: "/wallet", label: "Hamyon", icon: Wallet },
   { href: "/profile", label: "Hisob", icon: UserRound },
 ] as const;

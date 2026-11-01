@@ -70,38 +70,19 @@ export function LiveStreamStatus({
   const isOpen = Boolean(settings?.stream.isOpen);
 
   return (
-    <div
-      className={`flex items-center gap-2 bg-white text-slate-700 ${
-        compact ? "rounded-[16px] px-3 py-2.5" : "rounded-xl px-3.5 py-2"
-      }`}
-    >
-      <span
-        className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-          isOpen
-            ? "bg-emerald-50 text-emerald-600"
-            : "bg-slate-100 text-slate-400"
-        }`}
-      >
-        <Radio className="h-4 w-4" />
-        {isOpen ? (
-          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-white" />
-        ) : null}
+    <div className={`live-status ${compact ? "live-status--compact" : ""}`}>
+      <span className="live-status-icon" data-open={isOpen}>
+        <Radio size={21} />
       </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <p className="truncate text-xs font-extrabold">
-            {isOpen ? "Oqim ochiq" : "Oqim yopiq"}
-          </p>
-          <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-slate-500">
-            {count}
-          </span>
+      <div className="live-status-body">
+        <div className="live-status-title">
+          <strong>{isOpen ? "Oqim ochiq" : "Oqim yopiq"}</strong>
+          <span>{count}</span>
         </div>
-        <p className="mt-0.5 flex items-center gap-1 text-[10px] font-semibold text-slate-400">
-          <Clock3 className="h-3 w-3" />
-          {clock.label}
-          <span className="font-mono font-bold tabular-nums text-slate-700">
-            {clock.value}
-          </span>
+        <p>
+          <Clock3 size={14} />
+          <span>{clock.label}</span>
+          <b>{clock.value}</b>
         </p>
       </div>
       <button
@@ -109,9 +90,8 @@ export function LiveStreamStatus({
         onClick={onRefresh}
         disabled={fetching}
         aria-label="Oqimni yangilash"
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#f4f2fc] text-blue-700 hover:bg-blue-50 disabled:opacity-60"
       >
-        <RefreshCw className={`h-4 w-4 ${fetching ? "animate-spin" : ""}`} />
+        <RefreshCw size={20} className={fetching ? "animate-spin" : ""} />
       </button>
     </div>
   );

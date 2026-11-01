@@ -39,6 +39,8 @@ export type OperatorProfile = {
 };
 
 export type OrderItem = {
+  variantKey?: string | null;
+  variantName?: string | null;
   productId: string;
   numericId: number;
   name_uz: string;
@@ -48,6 +50,35 @@ export type OrderItem = {
   discount: number;
   price: number;
   thumbnailUrl: string | null;
+};
+
+export type OperatorCatalogProduct = {
+  numericId: number;
+  name: string;
+  thumbnailUrl: string | null;
+  price: number;
+  discountPrice: number | null;
+  stock: number;
+  variants: Array<{
+    key: string;
+    name: string;
+    stock: number;
+    price: number;
+    discountPrice: number | null;
+    thumbnailUrl: string | null;
+  }>;
+};
+
+export type CreateOperatorOrder = {
+  requestId: string;
+  clientName: string;
+  phoneNumber: string;
+  items: Array<{ numericId: number; quantity: number; variantKey?: string }>;
+  regionId: string;
+  cityId: string;
+  deliveryType: OrderDelivery["type"];
+  deliveryAddress?: string;
+  notes?: string;
 };
 
 export type OrderDelivery = {
@@ -152,6 +183,7 @@ export type MarketerCommissionLog = {
 };
 
 export type OperatorOrder = {
+  marketerId?: string | null;
   source?: string;
   _id: string;
   orderNumber: string;

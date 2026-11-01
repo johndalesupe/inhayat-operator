@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { LeadEditor } from "@/src/components/LeadEditor";
-import { PageHeading } from "@/src/components/WorkspaceDesign";
+
 import { useOperatorLead } from "@/src/hooks/useOperatorLeads";
 import { errorText } from "@/src/lib/format";
 
@@ -12,15 +12,14 @@ export default function LeadPage() {
   const { id } = useParams<{ id: string }>();
   const query = useOperatorLead(id);
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <Link href="/stream" className="text-xs font-semibold text-blue-700">
+    <div className="editing-workspace">
+      <Link href="/stream" className="form-back">
         ← Oqimga qaytish
       </Link>
-      <PageHeading
-        eyebrow="Mijoz bilan ishlash"
-        title="Leadni qayta ishlash"
-        description="Bog'laning, ma'lumotlarni tekshiring va buyurtmani tasdiqlang."
-      />
+      <header className="editing-heading">
+        <h1>Leadni qayta ishlash</h1>
+        <p>Ma?lumotlarni tekshiring va tasdiqlang.</p>
+      </header>
       {query.isLoading && (
         <Loader2
           className="mx-auto animate-spin"

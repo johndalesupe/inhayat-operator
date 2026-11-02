@@ -56,7 +56,7 @@ export function LeadEditor({ lead }: { lead: OperatorLead }) {
     enabled: editable,
     staleTime: 0,
   });
-  const [variantKey, setVariantKey] = useState("");
+  const [variantKey, setVariantKey] = useState(lead.variantKey ?? "");
   const product = catalog.data;
   const selectedKey =
     variantKey ||

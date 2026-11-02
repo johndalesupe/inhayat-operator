@@ -139,6 +139,50 @@ async function addProducts(value = "1042, 1050") {
   await screen.findByText("Atir 1042");
 }
 describe("operator order workspace", () => {
+  it("starts lead processing with the customer's saved variant selected", async () => {
+    mocks.catalog.mockResolvedValue({
+      ...product,
+      variants: [
+        {
+          key: "50",
+          name: "50 ml",
+          stock: 4,
+          price: 100000,
+          thumbnailUrl: "/50.jpg",
+        },
+        {
+          key: "100",
+          name: "100 ml",
+          stock: 3,
+          price: 200000,
+          thumbnailUrl: "/100.jpg",
+        },
+      ],
+    });
+    render(
+      <LeadEditor
+        lead={
+          {
+            _id: "lead",
+            streamNumericId: 7,
+            productNumericId: 1042,
+            variantKey: "100",
+            product: { nameUz: "Atir", price: 210000 },
+            quantity: 2,
+            clientName: "Test",
+            clientPhoneNumber: "+998901234567",
+            status: "received",
+          } as OperatorLead
+        }
+      />,
+    );
+    const selected = await screen.findByRole("radio", { name: /100 ml/ });
+    expect((selected as HTMLInputElement).checked).toBe(true);
+    expect(
+      (screen.getByRole("radio", { name: /50 ml/ }) as HTMLInputElement)
+        .checked,
+    ).toBe(false);
+  });
   it("creates multiple product IDs using server pricing and reuses the request ID after a lost response", async () => {
     mocks.create.mockRejectedValueOnce(new Error("Tarmoq uzildi"));
     render(<CreateOrderPage />);

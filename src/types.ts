@@ -339,6 +339,7 @@ export type ProcessResponse = {
 };
 
 export type OperatorLead = {
+  variantKey?: string | null;
   _id: string;
   streamNumericId: number;
   productNumericId: number;
